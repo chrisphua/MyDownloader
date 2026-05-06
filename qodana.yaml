@@ -1,0 +1,13 @@
+version: "1.0"
+linter: jetbrains/qodana-js:latest
+projectJDK: "22"
+include:
+  - name: All
+exclude:
+  - name: All
+    paths:
+      - node_modules
+      - dist
+      - build
+      - infra/cdk.out
+      - .expo

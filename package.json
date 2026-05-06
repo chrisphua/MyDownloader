@@ -11,12 +11,16 @@
   "scripts": {
     "build:types": "npm run build --workspace @todo-app/types",
     "lint": "npm run lint --workspaces --if-present",
+    "lint:eslint": "eslint .",
     "test": "npm run test --workspaces --if-present"
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.4.5"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.3.0",
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^8.59.2"
   }
 }
