@@ -1,0 +1,16 @@
+language: en-US
+reviews:
+  request_changes_workflow: false
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+  path_instructions:
+    - path: "apps/api/**"
+      instructions: "Check for proper error handling using ValidationError and withErrorHandling. All DDB access must go through todoRepository.ts, not directly."
+    - path: "apps/mobile/**"
+      instructions: "Screens must not call fetch directly — all data fetching goes through hooks in src/hooks/. API calls go through src/api/client.ts."
+    - path: "packages/types/**"
+      instructions: "Must remain dependency-free. No external imports allowed."
