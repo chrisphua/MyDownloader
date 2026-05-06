@@ -19,8 +19,8 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  test:
-    name: Lint and test
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,11 +36,28 @@ jobs:
       - name: Build shared types
         run: npm run build --workspace @todo-app/types
 
-      - name: Lint (typecheck) all workspaces
+      - name: Typecheck all workspaces
         run: npm run lint --workspaces --if-present
 
-      - name: Lint (ESLint) all workspaces
+      - name: ESLint all workspaces
         run: npm run lint:eslint
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared types
+        run: npm run build --workspace @todo-app/types
 
       - name: Run tests
         run: npm run test --workspaces --if-present
@@ -64,7 +81,7 @@ jobs:
 
   deploy:
     name: Deploy to AWS
-    needs: test
+    needs: [lint, test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
