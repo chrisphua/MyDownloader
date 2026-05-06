@@ -116,5 +116,8 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: CDK bootstrap
+        run: npx cdk bootstrap --app "npx tsx infra/bin/todo-app.ts"
+
       - name: CDK deploy
         run: npm run deploy --workspace @todo-app/infra
