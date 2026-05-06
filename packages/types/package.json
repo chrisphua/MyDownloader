@@ -11,7 +11,9 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "eslint": "^10.3.0",
     "typescript": "^5.4.5",
+    "typescript-eslint": "^8.59.2",
     "vitest": "^1.6.0"
   }
 }
