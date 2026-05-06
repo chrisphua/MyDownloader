@@ -10,7 +10,7 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import type { CreateTodoInput, Todo, UpdateTodoInput } from "@todo-app/types";
-import { api } from "../api/client";
+import { api } from "@/api/client";
 
 const keys = {
   all: ["todos"] as const,

@@ -1,8 +1,8 @@
 /** "Create todo" screen — presented as a modal on iOS. */
 import { useRouter } from "expo-router";
 import { Alert } from "react-native";
-import { TodoForm } from "../../src/components/TodoForm";
-import { useCreateTodo } from "../../src/hooks/useTodos";
+import { TodoForm } from "@/components/TodoForm";
+import { useCreateTodo } from "@/hooks/useTodos";
 
 export default function NewTodoScreen() {
   const router = useRouter();

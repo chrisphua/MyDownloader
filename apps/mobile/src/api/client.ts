@@ -11,7 +11,7 @@ import type {
   Todo,
   UpdateTodoInput,
 } from "@todo-app/types";
-import { env } from "../config/env";
+import { env } from "@/config/env";
 
 class ApiRequestError extends Error {
   constructor(

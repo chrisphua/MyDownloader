@@ -8,3 +8,7 @@ profile:
   name: qodana.recommended
 include:
   - name: CheckDependencyLicenses
+exclude:
+  - name: WrongTsConfigExtendsPath
+    paths:
+      - apps/mobile/tsconfig.json

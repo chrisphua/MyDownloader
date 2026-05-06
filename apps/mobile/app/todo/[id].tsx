@@ -7,8 +7,8 @@ import {
   Text,
   View,
 } from "react-native";
-import { TodoForm } from "../../src/components/TodoForm";
-import { useTodo, useUpdateTodo } from "../../src/hooks/useTodos";
+import { TodoForm } from "@/components/TodoForm";
+import { useTodo, useUpdateTodo } from "@/hooks/useTodos";
 
 export default function EditTodoScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

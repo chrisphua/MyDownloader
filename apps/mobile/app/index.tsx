@@ -21,7 +21,7 @@ import {
   useDeleteTodo,
   useTodos,
   useUpdateTodo,
-} from "../src/hooks/useTodos";
+} from "@/hooks/useTodos";
 
 export default function ListScreen() {
   const router = useRouter();
