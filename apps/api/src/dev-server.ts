@@ -15,8 +15,13 @@
  * automatically — no shell exports required.
  */
 import "dotenv/config";
+import { readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 import express, { type Request, type Response } from "express";
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
+import swaggerUi from "swagger-ui-express";
+import { parse } from "yaml";
 
 import { handler as listTodos } from "./handlers/listTodos.js";
 import { handler as getTodo } from "./handlers/getTodo.js";
@@ -24,8 +29,12 @@ import { handler as createTodo } from "./handlers/createTodo.js";
 import { handler as updateTodo } from "./handlers/updateTodo.js";
 import { handler as deleteTodo } from "./handlers/deleteTodo.js";
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const swaggerSpec = parse(readFileSync(resolve(__dirname, "../openapi.yaml"), "utf-8"));
+
 const app = express();
 app.use(express.json());
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Handle CORS preflight for all routes (mirrors the headers in lib/http.ts).
 app.use((req, res, next) => {
@@ -80,5 +89,6 @@ app.delete("/todos/:id", adapt(deleteTodo));
 const port = Number(process.env.PORT ?? 3000);
 app.listen(port, () => {
   console.log(`API listening on http://localhost:${port}`);
+  console.log(`Swagger UI:  http://localhost:${port}/docs`);
   console.log(`Using DynamoDB table: ${process.env.TODOS_TABLE_NAME}`);
 });
