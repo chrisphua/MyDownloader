@@ -1,13 +1,10 @@
+####################################################################################################################
+# WARNING: Do not store sensitive information in this file, as its contents will be included in the Qodana report. #
+####################################################################################################################
+
 version: "1.0"
-linter: jetbrains/qodana-js:latest
-projectJDK: "22"
+linter: jetbrains/qodana-js:2026.1
+profile:
+  name: qodana.recommended
 include:
-  - name: All
-exclude:
-  - name: All
-    paths:
-      - node_modules
-      - dist
-      - build
-      - infra/cdk.out
-      - .expo
+  - name: CheckDependencyLicenses
