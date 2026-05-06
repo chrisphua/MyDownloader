@@ -7,13 +7,33 @@
  */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import * as cdk from "aws-cdk-lib";
 import { Match, Template } from "aws-cdk-lib/assertions";
 import { TodoAppStack } from "../lib/todo-app-stack";
 
-// CDK checks the asset path exists at synth time. Create a placeholder so
-// tests pass without a real Expo web build.
+// Replace NodejsFunction with a plain Function so esbuild never runs.
+// Tests assert CloudFormation resource shapes, not Lambda bundle content.
+vi.mock("aws-cdk-lib/aws-lambda-nodejs", async () => {
+  const { aws_lambda: lambda } = await import("aws-cdk-lib");
+  return {
+    NodejsFunction: class extends lambda.Function {
+      constructor(scope: any, id: string, props: any) {
+        super(scope, id, {
+          runtime: props.runtime,
+          handler: props.handler ?? "index.handler",
+          code: lambda.Code.fromInline("/* stub */"),
+          memorySize: props.memorySize,
+          timeout: props.timeout,
+          environment: props.environment,
+        });
+      }
+    },
+  };
+});
+
+// CDK's BucketDeployment checks the asset path exists at synth time.
+// Create a placeholder so tests pass without a real Expo web build.
 const WEB_BUILD_DIR = path.resolve(__dirname, "../../apps/mobile/dist");
 let createdPlaceholder = false;
 
@@ -32,13 +52,7 @@ afterAll(() => {
 });
 
 function synth() {
-  const app = new cdk.App({
-    context: {
-      // Don't run esbuild/Docker bundling during unit tests — we're asserting
-      // CloudFormation resource shapes, not the Lambda build output.
-      bundlingStacks: [],
-    },
-  });
+  const app = new cdk.App();
   const stack = new TodoAppStack(app, "TestStack");
   return Template.fromStack(stack);
 }
