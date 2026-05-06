@@ -1,0 +1,22 @@
+{
+  "name": "todo-app",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Cross-platform CRUD todo app: Expo (iOS/Android/Web) + AWS serverless backend",
+  "workspaces": [
+    "packages/*",
+    "apps/*",
+    "infra"
+  ],
+  "scripts": {
+    "build:types": "npm run build --workspace @todo-app/types",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
