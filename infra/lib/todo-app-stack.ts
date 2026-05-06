@@ -52,22 +52,19 @@ export class TodoAppStack extends Stack {
     /* ---------------------------------------------------------------- */
     /* Lambda functions (one per handler)                               */
     /* ---------------------------------------------------------------- */
-    const sharedFnProps = {
+    const sharedFnProps: Omit<import("aws-cdk-lib/aws-lambda-nodejs").NodejsFunctionProps, "entry"> = {
       runtime: Runtime.NODEJS_20_X,
       memorySize: 512,
       timeout: Duration.seconds(10),
       environment: {
         TODOS_TABLE_NAME: todosTable.tableName,
-        // AWS_REGION is set automatically by Lambda.
       },
       bundling: {
-        // esbuild settings — externals keep the bundle small by relying on
-        // the AWS SDK that's bundled with the Node 20 Lambda runtime.
         externalModules: [],
         minify: true,
         sourceMap: true,
       },
-    } as const;
+    };
 
     const listFn = new NodejsFunction(this, "ListTodosFn", {
       ...sharedFnProps,
