@@ -54,7 +54,7 @@ todo-app/
 
 ## Prerequisites
 
-- Node.js 20+ (`nvm use 20` if you have nvm)
+- Node.js 22 LTS (`brew install node@22` on Mac)
 - Docker (for DynamoDB Local during local dev)
 - AWS CLI configured (only needed when you want to deploy)
 - iOS Simulator (Xcode) and/or Android Emulator (Android Studio) for mobile
@@ -76,7 +76,7 @@ cp apps/api/.env.example apps/api/.env
 npm run db:bootstrap --workspace @todo-app/api
 
 # 4. Run the API on http://localhost:3000
-PATH="/usr/local/opt/node@22/bin:$PATH" npm run dev --workspace @todo-app/api -- --clear
+PATH="/usr/local/opt/node@22/bin:$PATH" npm run dev --workspace @todo-app/api
 ```
 
 In a second terminal:
@@ -86,7 +86,7 @@ In a second terminal:
 cp apps/mobile/.env.example apps/mobile/.env
 
 # 6. Run the Expo dev server
-PATH="/usr/local/opt/node@20/bin:$PATH" npm run start --workspace @todo-app/mobile -- --clear
+PATH="/usr/local/opt/node@22/bin:$PATH" npm run start --workspace @todo-app/mobile
 ```
 
 In Expo's menu, press:
@@ -154,8 +154,9 @@ the real `ApiUrl` and `cdk deploy` again so the web bundle hits the right API.
 
 Required GitHub secrets:
 
-- `AWS_ROLE_TO_ASSUME` — IAM role ARN with deploy permissions
-- `AWS_REGION`         — e.g. `us-east-1`
+- `AWS_ACCESS_KEY_ID`     — IAM user access key
+- `AWS_SECRET_ACCESS_KEY` — IAM user secret key
+- `AWS_REGION`            — e.g. `ap-southeast-1`
 
 Required GitHub variable:
 
