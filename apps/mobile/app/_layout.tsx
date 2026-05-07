@@ -3,13 +3,13 @@ import NetInfo from "@react-native-community/netinfo";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { onlineManager, QueryClient, focusManager } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { getCurrentUser, initAuth } from "@/lib/auth";
 
-// Tell React Query about real network status on React Native.
 onlineManager.setEventListener((setOnline) =>
   NetInfo.addEventListener((state) => setOnline(!!state.isConnected)),
 );
@@ -33,13 +33,41 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
-  // Refetch when the app comes back to the foreground.
+  const router = useRouter();
+  const segments = useSegments();
+  const [authReady, setAuthReady] = useState(false);
+  const [isSignedIn, setIsSignedIn] = useState(false);
+
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state: AppStateStatus) =>
       focusManager.setFocused(state === "active"),
     );
     return () => sub.remove();
   }, []);
+
+  // Populate in-memory token cache from AsyncStorage, then check auth state.
+  useEffect(() => {
+    initAuth().then(() => {
+      setIsSignedIn(!!getCurrentUser());
+      setAuthReady(true);
+    });
+  }, []);
+
+  // Redirect to sign-in if unauthenticated, or to app if already signed in.
+  useEffect(() => {
+    if (!authReady) return;
+    const onAuthScreen =
+      segments[0] === "sign-in" ||
+      segments[0] === "sign-up" ||
+      segments[0] === "confirm";
+    if (!isSignedIn && !onAuthScreen) {
+      router.replace("/sign-in");
+    } else if (isSignedIn && onAuthScreen) {
+      router.replace("/");
+    }
+  }, [authReady, isSignedIn, segments, router]);
+
+  if (!authReady) return null;
 
   return (
     <PersistQueryClientProvider
@@ -60,6 +88,9 @@ export default function RootLayout() {
             options={{ title: "New todo", presentation: "modal" }}
           />
           <Stack.Screen name="todo/[id]" options={{ title: "Edit todo" }} />
+          <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+          <Stack.Screen name="sign-up" options={{ headerShown: false }} />
+          <Stack.Screen name="confirm" options={{ headerShown: false }} />
         </Stack>
       </SafeAreaProvider>
     </PersistQueryClientProvider>

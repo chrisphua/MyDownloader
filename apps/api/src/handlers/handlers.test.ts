@@ -11,7 +11,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
 
 process.env.TODOS_TABLE_NAME = "test-todos";
+process.env.TODOS_USER_INDEX = "userId-index";
 process.env.AWS_REGION = "us-east-1";
+
+const TEST_USER_ID = "user-test-123";
 
 const repoMock = {
   list: vi.fn(),
@@ -31,7 +34,7 @@ const { handler: createHandler } = await import("./createTodo.js");
 const { handler: updateHandler } = await import("./updateTodo.js");
 const { handler: deleteHandler } = await import("./deleteTodo.js");
 
-/** Build a minimal API Gateway v2 event for tests. */
+/** Build a minimal API Gateway v2 event with JWT claims for tests. */
 function event(overrides: Partial<APIGatewayProxyEventV2> = {}): APIGatewayProxyEventV2 {
   return {
     version: "2.0",
@@ -39,7 +42,9 @@ function event(overrides: Partial<APIGatewayProxyEventV2> = {}): APIGatewayProxy
     rawPath: "/",
     rawQueryString: "",
     headers: {},
-    requestContext: {} as APIGatewayProxyEventV2["requestContext"],
+    requestContext: {
+      authorizer: { jwt: { claims: { sub: TEST_USER_ID } } },
+    } as unknown as APIGatewayProxyEventV2["requestContext"],
     isBase64Encoded: false,
     ...overrides,
   } as APIGatewayProxyEventV2;

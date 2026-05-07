@@ -26,6 +26,7 @@ export function useTodos() {
     queryKey: keys.all,
     queryFn: api.listTodos,
     networkMode: "offlineFirst",
+    refetchInterval: 30_000,
   });
 }
 
@@ -51,6 +52,8 @@ export function useCreateTodo() {
         title: input.title,
         description: input.description,
         done: input.done ?? false,
+        priority: input.priority,
+        dueDate: input.dueDate,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };

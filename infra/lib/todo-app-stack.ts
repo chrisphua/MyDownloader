@@ -1,17 +1,3 @@
-/**
- * Single CDK stack for the entire app.
- *
- * Resources created:
- *   - DynamoDB table  : Todos (PK: id)
- *   - Lambda functions: 5 NodejsFunctions, one per CRUD endpoint, bundled
- *                       from apps/api with esbuild.
- *   - HTTP API        : API Gateway v2, routes wired to the Lambdas.
- *   - S3 bucket       : holds the Expo web build (apps/mobile/dist).
- *   - CloudFront      : public, HTTPS-fronted CDN over the S3 bucket.
- *
- * Why HTTP API (v2) and not REST API (v1)? Cheaper, lower latency, the v2
- * event shape is friendlier, and we don't need any v1-only features.
- */
 import * as path from "node:path";
 import {
   CfnOutput,
@@ -21,9 +7,11 @@ import {
   type StackProps,
 } from "aws-cdk-lib";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
+import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
@@ -39,14 +27,51 @@ export class TodoAppStack extends Stack {
     super(scope, id, props);
 
     /* ---------------------------------------------------------------- */
+    /* Cognito User Pool                                                */
+    /* ---------------------------------------------------------------- */
+    const userPool = new cognito.UserPool(this, "TodoUserPool", {
+      selfSignUpEnabled: true,
+      signInAliases: { email: true },
+      autoVerify: { email: true },
+      passwordPolicy: {
+        minLength: 8,
+        requireUppercase: false,
+        requireDigits: true,
+        requireSymbols: false,
+      },
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    const userPoolClient = new cognito.UserPoolClient(this, "TodoUserPoolClient", {
+      userPool,
+      authFlows: {
+        userPassword: true,
+        userSrp: true,
+      },
+      generateSecret: false,
+    });
+
+    const jwtAuthorizer = new HttpJwtAuthorizer(
+      "CognitoAuthorizer",
+      `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
+      { jwtAudience: [userPoolClient.userPoolClientId] },
+    );
+
+    /* ---------------------------------------------------------------- */
     /* DynamoDB                                                         */
     /* ---------------------------------------------------------------- */
     const todosTable = new dynamodb.Table(this, "TodosTable", {
       partitionKey: { name: "id", type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
-      // For a demo we wipe the table on stack destroy. For production set
-      // RETAIN so a stack delete cannot wipe customer data.
       removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    // GSI so we can query all todos belonging to a user efficiently.
+    todosTable.addGlobalSecondaryIndex({
+      indexName: "userId-index",
+      partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "createdAt", type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
     });
 
     /* ---------------------------------------------------------------- */
@@ -58,6 +83,7 @@ export class TodoAppStack extends Stack {
       timeout: Duration.seconds(10),
       environment: {
         TODOS_TABLE_NAME: todosTable.tableName,
+        TODOS_USER_INDEX: "userId-index",
       },
       bundling: {
         externalModules: [],
@@ -87,7 +113,6 @@ export class TodoAppStack extends Stack {
       entry: path.join(API_DIR, "handlers/deleteTodo.ts"),
     });
 
-    // Each function only gets the DDB permissions it actually needs.
     todosTable.grantReadData(listFn);
     todosTable.grantReadData(getFn);
     todosTable.grantWriteData(createFn);
@@ -99,8 +124,6 @@ export class TodoAppStack extends Stack {
     /* ---------------------------------------------------------------- */
     const httpApi = new apigwv2.HttpApi(this, "TodoHttpApi", {
       corsPreflight: {
-        // Permissive for the demo. In production lock to your CloudFront
-        // domain.
         allowOrigins: ["*"],
         allowMethods: [
           apigwv2.CorsHttpMethod.GET,
@@ -109,7 +132,7 @@ export class TodoAppStack extends Stack {
           apigwv2.CorsHttpMethod.DELETE,
           apigwv2.CorsHttpMethod.OPTIONS,
         ],
-        allowHeaders: ["Content-Type"],
+        allowHeaders: ["Content-Type", "Authorization"],
       },
     });
 
@@ -134,6 +157,7 @@ export class TodoAppStack extends Stack {
           `${route.name}Integration`,
           route.fn,
         ),
+        authorizer: jwtAuthorizer,
       });
     }
 
@@ -155,15 +179,11 @@ export class TodoAppStack extends Stack {
       },
       defaultRootObject: "index.html",
       errorResponses: [
-        // SPA fallback so client-side routes resolve to index.html.
         { httpStatus: 403, responseHttpStatus: 200, responsePagePath: "/index.html" },
         { httpStatus: 404, responseHttpStatus: 200, responsePagePath: "/index.html" },
       ],
     });
 
-    // Sync the Expo web build folder into the bucket on every deploy.
-    // If the folder doesn't exist yet (you haven't run `npm run build:web`),
-    // this fails — that's intentional, fix forward by running the build.
     new s3deploy.BucketDeployment(this, "WebDeployment", {
       sources: [s3deploy.Source.asset(WEB_BUILD_DIR)],
       destinationBucket: webBucket,
@@ -188,7 +208,15 @@ export class TodoAppStack extends Stack {
     });
     new CfnOutput(this, "TodosTableName", {
       value: todosTable.tableName,
-      description: "DynamoDB table name (set as TODOS_TABLE_NAME for local dev)",
+      description: "DynamoDB table name",
+    });
+    new CfnOutput(this, "UserPoolId", {
+      value: userPool.userPoolId,
+      description: "Cognito User Pool ID — set as EXPO_PUBLIC_USER_POOL_ID / VITE_USER_POOL_ID",
+    });
+    new CfnOutput(this, "UserPoolClientId", {
+      value: userPoolClient.userPoolClientId,
+      description: "Cognito App Client ID — set as EXPO_PUBLIC_USER_POOL_CLIENT_ID / VITE_USER_POOL_CLIENT_ID",
     });
   }
 }

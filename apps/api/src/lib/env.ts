@@ -19,6 +19,10 @@ export const env = {
   get TODOS_TABLE_NAME(): string {
     return required("TODOS_TABLE_NAME");
   },
+  /** Name of the userId GSI on the todos table. */
+  get TODOS_USER_INDEX(): string {
+    return required("TODOS_USER_INDEX");
+  },
   /** AWS region (Lambda sets this automatically). */
   get AWS_REGION(): string {
     return required("AWS_REGION");

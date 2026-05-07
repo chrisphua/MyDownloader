@@ -25,8 +25,23 @@ body { height: 100vh; overflow: hidden; }
   -webkit-app-region: drag;
   padding: 16px 20px 8px;
   padding-top: env(titlebar-area-y, 16px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 .titlebar h1 { font-size: 22px; font-weight: 700; }
+
+.btn-signout {
+  -webkit-app-region: no-drag;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.btn-signout:hover { background: var(--bg); }
 
 .offline-banner {
   background: #f5a623;
@@ -141,3 +156,73 @@ body { height: 100vh; overflow: hidden; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 button { font-family: inherit; }
+
+/* Search + filter bar */
+.search-filter {
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.search-input { flex: 1; min-width: 140px; }
+
+.filter-row { display: flex; gap: 6px; }
+.filter-btn {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--muted);
+}
+.filter-btn--active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Priority selector */
+.priority-select { display: flex; gap: 4px; flex-wrap: wrap; }
+.priority-btn {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 12px;
+  cursor: pointer;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.priority-btn--active { border-color: currentColor; background: #f0f0f2; }
+.priority-btn--low { color: #888; }
+.priority-btn--medium { color: #f5a623; }
+.priority-btn--high { color: var(--danger); }
+.input--date { min-width: 160px; max-width: 180px; }
+
+/* Todo meta badges */
+.todo-meta { display: flex; gap: 8px; margin-top: 2px; }
+.todo-badge { font-size: 11px; font-weight: 600; text-transform: capitalize; }
+
+/* Auth */
+.auth-container { display: flex; align-items: center; justify-content: center; height: 100%; background: var(--bg); }
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 320px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 32px 28px;
+}
+.auth-heading { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.auth-sub { font-size: 13px; color: var(--muted); }
+.auth-footer { font-size: 13px; color: var(--muted); text-align: center; }
+.auth-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+}

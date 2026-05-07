@@ -1,85 +1,84 @@
 /**
  * All DynamoDB access for the Todo entity lives here.
  *
- * Handlers must NOT call DynamoDB directly — they go through this module.
- * If you ever need to swap DynamoDB for Postgres or memory storage (e.g.
- * for tests), this is the single file to replace.
- *
- * Table schema (see infra/lib/api-stack.ts for the CDK definition):
+ * Table schema:
  *   PK: id (string, UUID)
- *   No sort key, no GSIs — simple single-item lookups by id.
+ *   GSI "userId-index": userId (PK) + createdAt (SK)
  *
- * For larger apps you'd shift to single-table design with composite keys,
- * but for a CRUD this size simplicity wins.
+ * Every method takes a userId so todos are scoped per-user.
  */
 import {
   DeleteCommand,
   GetCommand,
   PutCommand,
-  ScanCommand,
+  QueryCommand,
   UpdateCommand,
 } from "@aws-sdk/lib-dynamodb";
 import { v4 as uuid } from "uuid";
 
-import type {
-  CreateTodoInput,
-  Todo,
-  UpdateTodoInput,
-} from "@todo-app/types";
+import type { CreateTodoInput, Todo, UpdateTodoInput } from "@todo-app/types";
 import { ddb } from "../lib/ddb.js";
 import { env } from "../lib/env.js";
 
-export const todoRepository = {
-  async list(): Promise<Todo[]> {
-    // NOTE: Scan is fine for a small table. If this app grew to thousands
-    // of todos per user, we'd add a GSI on something like (ownerId, createdAt)
-    // and Query that instead.
-    const result = await ddb.send(
-      new ScanCommand({ TableName: env.TODOS_TABLE_NAME }),
-    );
-    const items = (result.Items ?? []) as Todo[];
-    // Newest first.
-    return items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  },
+type StoredTodo = Todo & { userId: string };
 
-  async getById(id: string): Promise<Todo | undefined> {
+function strip(item: StoredTodo): Todo {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { userId: _uid, ...rest } = item;
+  return rest;
+}
+
+export const todoRepository = {
+  async list(userId: string): Promise<Todo[]> {
     const result = await ddb.send(
-      new GetCommand({
+      new QueryCommand({
         TableName: env.TODOS_TABLE_NAME,
-        Key: { id },
+        IndexName: env.TODOS_USER_INDEX,
+        KeyConditionExpression: "#userId = :userId",
+        ExpressionAttributeNames: { "#userId": "userId" },
+        ExpressionAttributeValues: { ":userId": userId },
+        ScanIndexForward: false, // newest first via createdAt SK desc
       }),
     );
-    return result.Item as Todo | undefined;
+    return (result.Items ?? []).map((i) => strip(i as StoredTodo));
   },
 
-  async create(input: CreateTodoInput): Promise<Todo> {
+  async getById(userId: string, id: string): Promise<Todo | undefined> {
+    const result = await ddb.send(
+      new GetCommand({ TableName: env.TODOS_TABLE_NAME, Key: { id } }),
+    );
+    const item = result.Item as StoredTodo | undefined;
+    if (!item || item.userId !== userId) return undefined;
+    return strip(item);
+  },
+
+  async create(userId: string, input: CreateTodoInput): Promise<Todo> {
     const now = new Date().toISOString();
-    const todo: Todo = {
+    const item: StoredTodo = {
       id: uuid(),
+      userId,
       title: input.title,
       description: input.description,
       done: input.done ?? false,
+      priority: input.priority,
+      dueDate: input.dueDate,
       createdAt: now,
       updatedAt: now,
     };
     await ddb.send(
       new PutCommand({
         TableName: env.TODOS_TABLE_NAME,
-        Item: todo,
-        // Defensive — ensures we never overwrite a colliding id.
+        Item: item,
         ConditionExpression: "attribute_not_exists(id)",
       }),
     );
-    return todo;
+    return strip(item);
   },
 
-  async update(id: string, input: UpdateTodoInput): Promise<Todo | undefined> {
-    // Build a dynamic SET expression so we only touch the fields the client
-    // actually provided. This is friendlier than read-modify-write and
-    // avoids losing data on concurrent edits.
+  async update(userId: string, id: string, input: UpdateTodoInput): Promise<Todo | undefined> {
     const setParts: string[] = [];
-    const names: Record<string, string> = {};
-    const values: Record<string, unknown> = {};
+    const names: Record<string, string> = { "#userId": "userId" };
+    const values: Record<string, unknown> = { ":userId": userId };
 
     if (input.title !== undefined) {
       setParts.push("#title = :title");
@@ -96,8 +95,17 @@ export const todoRepository = {
       names["#done"] = "done";
       values[":done"] = input.done;
     }
+    if (input.priority !== undefined) {
+      setParts.push("#priority = :priority");
+      names["#priority"] = "priority";
+      values[":priority"] = input.priority;
+    }
+    if (input.dueDate !== undefined) {
+      setParts.push("#dueDate = :dueDate");
+      names["#dueDate"] = "dueDate";
+      values[":dueDate"] = input.dueDate;
+    }
 
-    // Always bump updatedAt.
     setParts.push("#updatedAt = :updatedAt");
     names["#updatedAt"] = "updatedAt";
     values[":updatedAt"] = new Date().toISOString();
@@ -110,38 +118,34 @@ export const todoRepository = {
           UpdateExpression: `SET ${setParts.join(", ")}`,
           ExpressionAttributeNames: names,
           ExpressionAttributeValues: values,
-          // Fail if the row doesn't exist, so callers can return 404.
-          ConditionExpression: "attribute_exists(id)",
+          ConditionExpression: "attribute_exists(id) AND #userId = :userId",
           ReturnValues: "ALL_NEW",
         }),
       );
-      return result.Attributes as Todo | undefined;
+      const item = result.Attributes as StoredTodo | undefined;
+      return item ? strip(item) : undefined;
     } catch (err: unknown) {
-      if (
-        err instanceof Error &&
-        err.name === "ConditionalCheckFailedException"
-      ) {
+      if (err instanceof Error && err.name === "ConditionalCheckFailedException") {
         return undefined;
       }
       throw err;
     }
   },
 
-  async delete(id: string): Promise<boolean> {
+  async delete(userId: string, id: string): Promise<boolean> {
     try {
       await ddb.send(
         new DeleteCommand({
           TableName: env.TODOS_TABLE_NAME,
           Key: { id },
-          ConditionExpression: "attribute_exists(id)",
+          ConditionExpression: "attribute_exists(id) AND #userId = :userId",
+          ExpressionAttributeNames: { "#userId": "userId" },
+          ExpressionAttributeValues: { ":userId": userId },
         }),
       );
       return true;
     } catch (err: unknown) {
-      if (
-        err instanceof Error &&
-        err.name === "ConditionalCheckFailedException"
-      ) {
+      if (err instanceof Error && err.name === "ConditionalCheckFailedException") {
         return false;
       }
       throw err;

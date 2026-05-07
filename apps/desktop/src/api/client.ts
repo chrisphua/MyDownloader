@@ -1,4 +1,5 @@
 import type { ApiError, CreateTodoInput, Todo, UpdateTodoInput } from "@todo-app/types";
+import { getAccessToken } from "@/lib/auth";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
@@ -14,9 +15,16 @@ class ApiRequestError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  let token: string | undefined;
+  try { token = await getAccessToken(); } catch { /* unauthenticated */ }
+
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init.headers ?? {}),
+    },
   });
 
   if (res.status === 204) return undefined as T;

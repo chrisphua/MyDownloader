@@ -4,13 +4,9 @@
  * This is the single source of truth for the Todo domain model. Both the
  * backend (apps/api) and the frontend (apps/mobile) import from this package
  * so they cannot drift on field names, types, or shapes.
- *
- * Conventions:
- * - `Todo` is the canonical, server-side shape (what comes back from the API).
- * - `*Input` types describe what the client sends in. They omit
- *   server-managed fields like `id`, `createdAt`, and `updatedAt`.
- * - All timestamps are ISO-8601 strings to keep JSON serialization trivial.
  */
+
+export type Priority = "low" | "medium" | "high";
 
 /** A single todo item as returned by the API. */
 export interface Todo {
@@ -22,6 +18,10 @@ export interface Todo {
   description?: string;
   /** Whether the todo has been marked done. */
   done: boolean;
+  /** Optional urgency level. */
+  priority?: Priority;
+  /** Optional due date in YYYY-MM-DD format. */
+  dueDate?: string;
   /** ISO-8601 creation timestamp, set by the server. */
   createdAt: string;
   /** ISO-8601 last-updated timestamp, refreshed on every write. */
@@ -33,6 +33,8 @@ export interface CreateTodoInput {
   title: string;
   description?: string;
   done?: boolean;
+  priority?: Priority;
+  dueDate?: string;
 }
 
 /** Payload for `PUT /todos/{id}`. All fields optional — partial updates. */
@@ -40,6 +42,8 @@ export interface UpdateTodoInput {
   title?: string;
   description?: string;
   done?: boolean;
+  priority?: Priority;
+  dueDate?: string;
 }
 
 /** Standard error envelope returned by the API on 4xx/5xx. */
@@ -52,11 +56,9 @@ export interface ApiError {
 /* Validation helpers                                                         */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Lightweight validation for `CreateTodoInput`. We avoid pulling in a schema
- * library here so the shared package stays dependency-free and tiny — both
- * the API and the mobile app can run this without bundling extra weight.
- */
+const VALID_PRIORITIES: Priority[] = ["low", "medium", "high"];
+const DUE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
 export function validateCreateTodoInput(value: unknown): CreateTodoInput {
   if (typeof value !== "object" || value === null) {
     throw new Error("Body must be a JSON object");
@@ -75,11 +77,21 @@ export function validateCreateTodoInput(value: unknown): CreateTodoInput {
   if (body.done !== undefined && typeof body.done !== "boolean") {
     throw new Error("`done` must be a boolean when provided");
   }
+  if (body.priority !== undefined && !VALID_PRIORITIES.includes(body.priority as Priority)) {
+    throw new Error("`priority` must be 'low', 'medium', or 'high' when provided");
+  }
+  if (body.dueDate !== undefined) {
+    if (typeof body.dueDate !== "string" || !DUE_DATE_RE.test(body.dueDate)) {
+      throw new Error("`dueDate` must be a date string in YYYY-MM-DD format when provided");
+    }
+  }
 
   return {
     title: body.title.trim(),
     description: body.description as string | undefined,
     done: body.done as boolean | undefined,
+    priority: body.priority as Priority | undefined,
+    dueDate: body.dueDate as string | undefined,
   };
 }
 
@@ -112,6 +124,18 @@ export function validateUpdateTodoInput(value: unknown): UpdateTodoInput {
       throw new Error("`done` must be a boolean when provided");
     }
     out.done = body.done;
+  }
+  if (body.priority !== undefined) {
+    if (!VALID_PRIORITIES.includes(body.priority as Priority)) {
+      throw new Error("`priority` must be 'low', 'medium', or 'high' when provided");
+    }
+    out.priority = body.priority as Priority;
+  }
+  if (body.dueDate !== undefined) {
+    if (typeof body.dueDate !== "string" || !DUE_DATE_RE.test(body.dueDate)) {
+      throw new Error("`dueDate` must be a date string in YYYY-MM-DD format when provided");
+    }
+    out.dueDate = body.dueDate;
   }
 
   if (Object.keys(out).length === 0) {
