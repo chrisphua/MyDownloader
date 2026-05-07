@@ -15,10 +15,14 @@ import { TodoAppStack } from "../lib/todo-app-stack";
 // Replace NodejsFunction with a plain Function so esbuild never runs.
 // Tests assert CloudFormation resource shapes, not Lambda bundle content.
 vi.mock("aws-cdk-lib/aws-lambda-nodejs", async () => {
-  const { aws_lambda: lambda } = await import("aws-cdk-lib");
+  const cdk = await import("aws-cdk-lib");
+  const { aws_lambda: lambda } = cdk;
+  type Props = ConstructorParameters<typeof lambda.Function>[2] & {
+    entry?: string;
+  };
   return {
     NodejsFunction: class extends lambda.Function {
-      constructor(scope: any, id: string, props: any) {
+      constructor(scope: cdk.Stack, id: string, props: Props) {
         super(scope, id, {
           runtime: props.runtime,
           handler: props.handler ?? "index.handler",
