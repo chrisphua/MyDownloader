@@ -5,10 +5,10 @@ import { onlineManager, QueryClient, focusManager } from "@tanstack/react-query"
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { getCurrentUser, initAuth } from "@/lib/auth";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 
 onlineManager.setEventListener((setOnline) =>
   NetInfo.addEventListener((state) => setOnline(!!state.isConnected)),
@@ -33,11 +33,6 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
-  const router = useRouter();
-  const segments = useSegments();
-  const [authReady, setAuthReady] = useState(false);
-  const [isSignedIn, setIsSignedIn] = useState(false);
-
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state: AppStateStatus) =>
       focusManager.setFocused(state === "active"),
@@ -45,15 +40,26 @@ export default function RootLayout() {
     return () => sub.remove();
   }, []);
 
-  // Populate in-memory token cache from AsyncStorage, then check auth state.
-  useEffect(() => {
-    initAuth().then(() => {
-      setIsSignedIn(!!getCurrentUser());
-      setAuthReady(true);
-    });
-  }, []);
+  return (
+    <AuthProvider>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 }}
+      >
+        <SafeAreaProvider>
+          <StatusBar style="auto" />
+          <AuthGate />
+        </SafeAreaProvider>
+      </PersistQueryClientProvider>
+    </AuthProvider>
+  );
+}
 
-  // Redirect to sign-in if unauthenticated, or to app if already signed in.
+function AuthGate() {
+  const router = useRouter();
+  const segments = useSegments();
+  const { isSignedIn, authReady } = useAuth();
+
   useEffect(() => {
     if (!authReady) return;
     const onAuthScreen =
@@ -70,29 +76,21 @@ export default function RootLayout() {
   if (!authReady) return null;
 
   return (
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 }}
+    <Stack
+      screenOptions={{
+        headerStyle: { backgroundColor: "#f8f8fa" },
+        headerTitleStyle: { fontWeight: "600" },
+      }}
     >
-      <SafeAreaProvider>
-        <StatusBar style="auto" />
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: "#f8f8fa" },
-            headerTitleStyle: { fontWeight: "600" },
-          }}
-        >
-          <Stack.Screen name="index" options={{ title: "Todos" }} />
-          <Stack.Screen
-            name="todo/new"
-            options={{ title: "New todo", presentation: "modal" }}
-          />
-          <Stack.Screen name="todo/[id]" options={{ title: "Edit todo" }} />
-          <Stack.Screen name="sign-in" options={{ headerShown: false }} />
-          <Stack.Screen name="sign-up" options={{ headerShown: false }} />
-          <Stack.Screen name="confirm" options={{ headerShown: false }} />
-        </Stack>
-      </SafeAreaProvider>
-    </PersistQueryClientProvider>
+      <Stack.Screen name="index" options={{ title: "Todos" }} />
+      <Stack.Screen
+        name="todo/new"
+        options={{ title: "New todo", presentation: "modal" }}
+      />
+      <Stack.Screen name="todo/[id]" options={{ title: "Edit todo" }} />
+      <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+      <Stack.Screen name="sign-up" options={{ headerShown: false }} />
+      <Stack.Screen name="confirm" options={{ headerShown: false }} />
+    </Stack>
   );
 }

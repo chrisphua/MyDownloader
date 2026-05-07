@@ -1,4 +1,4 @@
-import { Link, useRouter } from "expo-router";
+import { Link } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -11,9 +11,10 @@ import {
   View,
 } from "react-native";
 import { signIn } from "@/lib/auth";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SignInScreen() {
-  const router = useRouter();
+  const { setIsSignedIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,7 +27,7 @@ export default function SignInScreen() {
     setLoading(true);
     try {
       await signIn(e, password);
-      router.replace("/");
+      setIsSignedIn(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-in failed");
     } finally {

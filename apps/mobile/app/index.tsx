@@ -21,18 +21,20 @@ import {
   useUpdateTodo,
 } from "@/hooks/useTodos";
 import { signOut } from "@/lib/auth";
+import { useAuth } from "@/context/AuthContext";
 
 type Filter = "all" | "active" | "done";
 
 export default function ListScreen() {
   const router = useRouter();
   const navigation = useNavigation();
+  const { setIsSignedIn } = useAuth();
 
   useEffect(() => {
     navigation.setOptions({
       headerRight: () => (
         <Pressable
-          onPress={() => { signOut(); router.replace("/sign-in"); }}
+          onPress={() => { signOut(); setIsSignedIn(false); }}
           style={{ marginRight: 16 }}
           hitSlop={10}
         >
@@ -40,7 +42,7 @@ export default function ListScreen() {
         </Pressable>
       ),
     });
-  }, [navigation, router]);
+  }, [navigation, setIsSignedIn]);
   const isOnline = useIsOnline();
   const { data, isLoading, isRefetching, refetch, error } = useTodos();
   const [search, setSearch] = useState("");
