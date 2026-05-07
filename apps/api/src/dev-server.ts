@@ -63,7 +63,9 @@ function adapt(
       rawPath: req.path,
       rawQueryString: "",
       headers: req.headers as Record<string, string>,
-      requestContext: {} as APIGatewayProxyEventV2["requestContext"],
+      requestContext: {
+        authorizer: { jwt: { claims: { sub: process.env.DEV_USER_ID ?? "local-dev-user" } } },
+      } as unknown as APIGatewayProxyEventV2["requestContext"],
       body: req.body ? JSON.stringify(req.body) : undefined,
       pathParameters: req.params,
       isBase64Encoded: false,
