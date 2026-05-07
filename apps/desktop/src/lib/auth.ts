@@ -9,9 +9,11 @@ import {
   CognitoUserPool,
 } from "amazon-cognito-identity-js";
 
+import { COGNITO } from "@/config/cognito";
+
 const userPool = new CognitoUserPool({
-  UserPoolId: import.meta.env.VITE_USER_POOL_ID as string,
-  ClientId: import.meta.env.VITE_USER_POOL_CLIENT_ID as string,
+  UserPoolId: COGNITO.userPoolId,
+  ClientId: COGNITO.userPoolClientId,
 });
 
 export function getCurrentUser(): CognitoUser | null {

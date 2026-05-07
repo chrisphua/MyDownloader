@@ -12,7 +12,7 @@ import {
   CognitoUserAttribute,
   type ICognitoStorage,
 } from "amazon-cognito-identity-js";
-import { env } from "@/config/env";
+import { COGNITO } from "@/config/cognito";
 
 // Synchronous in-memory cache populated from AsyncStorage on init.
 const memCache: Record<string, string> = {};
@@ -36,8 +36,8 @@ const storage: ICognitoStorage = {
 };
 
 const userPool = new CognitoUserPool({
-  UserPoolId: env.USER_POOL_ID,
-  ClientId: env.USER_POOL_CLIENT_ID,
+  UserPoolId: COGNITO.userPoolId,
+  ClientId: COGNITO.userPoolClientId,
   Storage: storage,
 });
 

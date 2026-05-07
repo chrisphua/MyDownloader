@@ -189,11 +189,13 @@ Required GitHub secrets:
 - `AWS_SECRET_ACCESS_KEY` — IAM user secret key
 - `AWS_REGION`            — e.g. `ap-southeast-1`
 
-Required GitHub variables (set after the first deploy):
+Required GitHub variable (set after the first deploy):
 
-- `EXPO_PUBLIC_API_URL`             — `ApiUrl` from CDK output
-- `EXPO_PUBLIC_USER_POOL_ID`        — `UserPoolId` from CDK output
-- `EXPO_PUBLIC_USER_POOL_CLIENT_ID` — `UserPoolClientId` from CDK output
+- `EXPO_PUBLIC_API_URL` — `ApiUrl` from CDK output
+
+Cognito pool IDs are committed directly in `apps/mobile/src/config/cognito.ts`
+and `apps/desktop/src/config/cognito.ts` — update those files after the first
+deploy and push again.
 
 ## How to extend it (for the next developer)
 
