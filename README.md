@@ -1,35 +1,39 @@
 # Todo App
 
-A simple, full-stack CRUD todo application demonstrating a clean,
-maintainable architecture across mobile (iOS/Android), web, and a
-serverless AWS backend.
+A full-stack CRUD todo application demonstrating a clean, maintainable
+architecture across mobile (iOS/Android), desktop (Mac/Windows/Linux),
+web, and a serverless AWS backend.
 
 ## Architecture at a glance
 
 ```
-┌─────────────────────────────┐         ┌──────────────────────────┐
-│  Expo App (apps/mobile)     │  HTTPS  │  API Gateway (HTTP API)  │
-│  - iOS, Android, Web        │ ──────► │                          │
-│  - One TypeScript codebase  │         └────────────┬─────────────┘
-└─────────────────────────────┘                      │
-                                                     ▼
-                                         ┌──────────────────────┐
-                                         │  Lambda functions    │
-                                         │  (apps/api)          │
-                                         │  - list / get        │
-                                         │  - create / update   │
-                                         │  - delete            │
-                                         └──────────┬───────────┘
-                                                    │
-                                                    ▼
-                                         ┌──────────────────────┐
-                                         │  DynamoDB            │
-                                         │  Table: Todos        │
-                                         └──────────────────────┘
+┌──────────────────────────┐
+│  Expo App (apps/mobile)  │  iOS, Android, Web
+└──────────┬───────────────┘
+           │
+┌──────────┴───────────────┐         ┌──────────────────────────┐
+│  Electron (apps/desktop) │  HTTPS  │  API Gateway (HTTP API)  │
+└──────────┬───────────────┘ ──────► │                          │
+           │                         └────────────┬─────────────┘
+           │                                      │
+           │                                      ▼
+           │                          ┌──────────────────────┐
+           │                          │  Lambda functions    │
+           │                          │  (apps/api)          │
+           │                          │  - list / get        │
+           │                          │  - create / update   │
+           │                          │  - delete            │
+           │                          └──────────┬───────────┘
+           │                                     │
+           │                                     ▼
+           │                          ┌──────────────────────┐
+           └─────────────────────────►│  DynamoDB            │
+                                      │  Table: Todos        │
+                                      └──────────────────────┘
 ```
 
-A shared `packages/types` workspace holds the canonical `Todo` type so the
-frontend and backend cannot drift on field names or shapes.
+A shared `packages/types` workspace holds the canonical `Todo` type so
+all clients and the backend cannot drift on field names or shapes.
 
 ## Repo layout
 
@@ -42,12 +46,14 @@ todo-app/
 │   │   ├── src/lib/             http helpers, env, ddb client
 │   │   ├── src/dev-server.ts    Express shim for local dev
 │   │   └── scripts/             db bootstrap for DynamoDB Local
-│   └── mobile/          Expo (React Native) app
-│       ├── app/                 expo-router screens
-│       └── src/                 hooks, components, api client
+│   ├── mobile/          Expo (React Native) app — iOS, Android, Web
+│   │   ├── app/                 expo-router screens
+│   │   └── src/                 hooks, components, api client
+│   └── desktop/         Electron app — Mac, Windows, Linux
+│       └── src/                 main process, preload, React renderer
 ├── packages/
 │   └── types/           Shared TypeScript types and DTOs
-├── infra/               AWS CDK app
+├── infra/               AWS CDK stack
 ├── docker-compose.yml   DynamoDB Local for offline dev
 └── .github/workflows/   CI/CD pipeline
 ```
@@ -79,7 +85,7 @@ npm run db:bootstrap --workspace @todo-app/api
 PATH="/usr/local/opt/node@22/bin:$PATH" npm run dev --workspace @todo-app/api
 ```
 
-In a second terminal:
+In a second terminal (mobile):
 
 ```bash
 # 5. Configure the mobile app
@@ -89,18 +95,21 @@ cp apps/mobile/.env.example apps/mobile/.env
 PATH="/usr/local/opt/node@22/bin:$PATH" npm run start --workspace @todo-app/mobile
 ```
 
-In Expo's menu, press:
+In Expo's menu, press `i` (iOS), `a` (Android), or `w` (browser).
 
-- `i` — open iOS Simulator
-- `a` — open Android Emulator
-- `w` — open in your browser at `http://localhost:8081`
+> **Physical device:** replace `localhost` in `apps/mobile/.env` with your
+> laptop's LAN IP (e.g. `http://192.168.1.42:3000`) — phones can't reach
+> your laptop's localhost.
 
-Or scan the printed QR code with **Expo Go** on a physical phone (same Wi-Fi).
+Or in a second terminal (desktop):
 
-> **Phone on real device note:** `localhost` from your phone's perspective is
-> *the phone itself*, not your laptop. Replace `localhost` in
-> `apps/mobile/.env` with your laptop's LAN IP (e.g. `http://192.168.1.42:3000`)
-> when running on a physical device.
+```bash
+# 5. Configure the desktop app
+cp apps/desktop/.env.example apps/desktop/.env
+
+# 6. Launch the Electron app
+PATH="/usr/local/opt/node@22/bin:$PATH" npm run start --workspace @todo-app/desktop
+```
 
 ## Running tests
 
@@ -114,6 +123,18 @@ This runs:
 - **26** repository tests with mocked DynamoDB (`@todo-app/api`)
 - **25** handler tests covering 200/201/204/400/404/500 paths (`@todo-app/api`)
 - **6** CDK assertion tests verifying the synthesized CloudFormation (`@todo-app/infra`)
+
+## Building desktop installers
+
+```bash
+# Builds for your current OS
+PATH="/usr/local/opt/node@22/bin:$PATH" npm run make --workspace @todo-app/desktop
+```
+
+Output goes to `apps/desktop/out/make/`:
+- **Mac** — `.zip` (distribute via your own mechanism or notarise for App Store)
+- **Windows** — `.exe` (Squirrel installer)
+- **Linux** — `.deb` and `.rpm`
 
 ## Deploying to AWS
 
@@ -165,14 +186,15 @@ Required GitHub variable:
 ## How to extend it (for the next developer)
 
 - **Adding a field to Todo** → edit `packages/types/src/index.ts`. TypeScript
-  flags every place that needs to change.
+  flags every place that needs to change across all clients.
 - **Adding a new endpoint** → drop a handler in `apps/api/src/handlers/`,
   register it in `infra/lib/todo-app-stack.ts`. Add a test in
   `apps/api/src/handlers/handlers.test.ts`.
 - **Changing the database** → all DDB access lives in
   `apps/api/src/repository/todoRepository.ts`. Swap that one file.
-- **Frontend data fetching** → `apps/mobile/src/hooks/useTodos.ts` is the
+- **Mobile data fetching** → `apps/mobile/src/hooks/useTodos.ts` is the
   React Query layer. Screens never call `fetch` directly.
+- **Desktop data fetching** → same pattern in `apps/desktop/src/hooks/useTodos.ts`.
 
 ## Cost expectations
 
