@@ -108,6 +108,8 @@ jobs:
           # first deploy, leave this and re-run after the stack is up to point
           # the web build at the real API.
           EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
+          EXPO_PUBLIC_USER_POOL_ID: ${{ vars.EXPO_PUBLIC_USER_POOL_ID }}
+          EXPO_PUBLIC_USER_POOL_CLIENT_ID: ${{ vars.EXPO_PUBLIC_USER_POOL_CLIENT_ID }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

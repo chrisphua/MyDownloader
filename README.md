@@ -138,15 +138,23 @@ Output goes to `apps/desktop/out/make/`:
 
 ## Deploying to AWS
 
+> **Node 22 required for CDK commands.** Prefix each command with:
+> ```bash
+> export PATH="/usr/local/opt/node@22/bin:$PATH"
+> ```
+
 One-time, on a fresh AWS account/region:
 
 ```bash
+export PATH="/usr/local/opt/node@22/bin:$PATH"
 npx cdk bootstrap --app "npx ts-node --prefer-ts-exts infra/bin/todo-app.ts"
 ```
 
 Then any time:
 
 ```bash
+export PATH="/usr/local/opt/node@22/bin:$PATH"
+
 # Build the web bundle (CDK uploads it to S3)
 EXPO_PUBLIC_API_URL=<temporarily anything> \
   npm run build:web --workspace @todo-app/mobile
@@ -157,10 +165,12 @@ npm run deploy --workspace @todo-app/infra
 
 CDK prints these outputs:
 
-- `ApiUrl`        — base URL of your HTTP API
-- `WebUrl`        — public CloudFront URL
-- `WebBucketName` — S3 bucket holding the web build
+- `ApiUrl`             — base URL of your HTTP API
+- `WebUrl`             — public CloudFront URL
+- `WebBucketName`      — S3 bucket holding the web build
 - `TodosTableName`
+- `UserPoolId`         — copy into `VITE_USER_POOL_ID` / `EXPO_PUBLIC_USER_POOL_ID`
+- `UserPoolClientId`   — copy into `VITE_USER_POOL_CLIENT_ID` / `EXPO_PUBLIC_USER_POOL_CLIENT_ID`
 
 For the first deploy, repeat the build with `EXPO_PUBLIC_API_URL` pointing at
 the real `ApiUrl` and `cdk deploy` again so the web bundle hits the right API.
@@ -179,9 +189,11 @@ Required GitHub secrets:
 - `AWS_SECRET_ACCESS_KEY` — IAM user secret key
 - `AWS_REGION`            — e.g. `ap-southeast-1`
 
-Required GitHub variable:
+Required GitHub variables (set after the first deploy):
 
-- `EXPO_PUBLIC_API_URL` — set after the first deploy
+- `EXPO_PUBLIC_API_URL`             — `ApiUrl` from CDK output
+- `EXPO_PUBLIC_USER_POOL_ID`        — `UserPoolId` from CDK output
+- `EXPO_PUBLIC_USER_POOL_CLIENT_ID` — `UserPoolClientId` from CDK output
 
 ## How to extend it (for the next developer)
 
