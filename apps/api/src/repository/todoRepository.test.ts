@@ -72,7 +72,7 @@ describe("todoRepository.list", () => {
   it("strips userId from returned items", async () => {
     sendMock.mockResolvedValueOnce({ Items: [fixture({ id: "a" })] });
     const [item] = await todoRepository.list(USER_ID);
-    expect((item as Record<string, unknown>).userId).toBeUndefined();
+    expect((item as unknown as Record<string, unknown>).userId).toBeUndefined();
   });
 });
 
@@ -148,7 +148,7 @@ describe("todoRepository.create", () => {
   it("strips userId from the returned item", async () => {
     sendMock.mockResolvedValueOnce({});
     const todo = await todoRepository.create(USER_ID, { title: "x" });
-    expect((todo as Record<string, unknown>).userId).toBeUndefined();
+    expect((todo as unknown as Record<string, unknown>).userId).toBeUndefined();
   });
 
   it("propagates unexpected errors from DDB", async () => {
