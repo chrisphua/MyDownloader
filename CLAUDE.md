@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Security Testing
 
-**Always read `.claude/security/testing-spec.md` before writing any test file.**
+**Always read `docs/security-testing-spec.md` before writing any test file.**
 Every test file must include the relevant sections from that spec:
 - Missing auth → 401
 - Cross-user access (IDOR) → 404
