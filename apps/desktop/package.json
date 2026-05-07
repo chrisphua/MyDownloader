@@ -11,7 +11,9 @@
     "test": "echo 'No desktop tests yet' && exit 0"
   },
   "dependencies": {
+    "@tanstack/query-sync-storage-persister": "^5.40.0",
     "@tanstack/react-query": "^5.40.0",
+    "@tanstack/react-query-persist-client": "^5.40.0",
     "@todo-app/types": "*",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

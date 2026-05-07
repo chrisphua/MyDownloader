@@ -19,15 +19,17 @@ import type { Todo } from "@todo-app/types";
 
 import {
   useDeleteTodo,
+  useIsOnline,
   useTodos,
   useUpdateTodo,
 } from "@/hooks/useTodos";
 
 export default function ListScreen() {
   const router = useRouter();
+  const isOnline = useIsOnline();
   const { data, isLoading, isRefetching, refetch, error } = useTodos();
 
-  if (isLoading) {
+  if (isLoading && !data) {
     return (
       <View style={styles.center}>
         <ActivityIndicator />
@@ -35,7 +37,7 @@ export default function ListScreen() {
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
       <View style={styles.center}>
         <Text style={styles.error}>Couldn't load todos: {error.message}</Text>
@@ -48,6 +50,11 @@ export default function ListScreen() {
 
   return (
     <SafeAreaView style={styles.flex} edges={["bottom"]}>
+      {!isOnline && (
+        <View style={styles.offlineBanner}>
+          <Text style={styles.offlineText}>Offline — changes will sync when connected</Text>
+        </View>
+      )}
       <FlatList
         data={data ?? []}
         keyExtractor={(t) => t.id}
@@ -169,6 +176,12 @@ const styles = StyleSheet.create({
   },
   fabIcon: { color: "#fff", fontSize: 28, fontWeight: "300", lineHeight: 30 },
 
+  offlineBanner: {
+    backgroundColor: "#f5a623",
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+  },
+  offlineText: { color: "#fff", fontSize: 13, textAlign: "center" },
   error: { color: "#c33", textAlign: "center" },
   retry: {
     paddingVertical: 8,

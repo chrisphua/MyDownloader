@@ -1,33 +1,51 @@
-/**
- * Root layout — wraps every screen.
- *
- * Two responsibilities:
- *   1. Provide the React Query client to the whole app.
- *   2. Render the expo-router stack (each screen lives in app/*.tsx).
- */
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import NetInfo from "@react-native-community/netinfo";
+import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
+import { onlineManager, QueryClient, focusManager } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { AppState, type AppStateStatus } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+// Tell React Query about real network status on React Native.
+onlineManager.setEventListener((setOnline) =>
+  NetInfo.addEventListener((state) => setOnline(!!state.isConnected)),
+);
+
+const persister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  throttleTime: 1000,
+});
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5_000,
+      retry: 1,
+      networkMode: "offlineFirst",
+    },
+    mutations: {
+      networkMode: "offlineFirst",
+    },
+  },
+});
+
 export default function RootLayout() {
-  const [client] = useState(
-    () =>
-      new QueryClient({
-        defaultOptions: {
-          queries: {
-            // Refetch on focus is great on web, less ideal on phones — keep
-            // it on by default and override per-query when needed.
-            staleTime: 5_000,
-            retry: 1,
-          },
-        },
-      }),
-  );
+  // Refetch when the app comes back to the foreground.
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state: AppStateStatus) =>
+      focusManager.setFocused(state === "active"),
+    );
+    return () => sub.remove();
+  }, []);
 
   return (
-    <QueryClientProvider client={client}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 }}
+    >
       <SafeAreaProvider>
         <StatusBar style="auto" />
         <Stack
@@ -44,6 +62,6 @@ export default function RootLayout() {
           <Stack.Screen name="todo/[id]" options={{ title: "Edit todo" }} />
         </Stack>
       </SafeAreaProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   );
 }

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import type { Todo } from "@todo-app/types";
-import { useCreateTodo, useDeleteTodo, useTodos, useUpdateTodo } from "@/hooks/useTodos";
+import { useCreateTodo, useDeleteTodo, useIsOnline, useTodos, useUpdateTodo } from "@/hooks/useTodos";
 
 export function App() {
+  const isOnline = useIsOnline();
   const { data: todos, isLoading, error, refetch } = useTodos();
   const createTodo = useCreateTodo();
   const deleteTodo = useDeleteTodo();
@@ -21,8 +22,8 @@ export function App() {
     );
   }
 
-  if (isLoading) return <div className="center"><div className="spinner" /></div>;
-  if (error) return (
+  if (isLoading && !todos) return <div className="center"><div className="spinner" /></div>;
+  if (error && !todos) return (
     <div className="center">
       <p className="error">{error.message}</p>
       <button onClick={() => refetch()}>Retry</button>
@@ -34,6 +35,9 @@ export function App() {
       <header className="titlebar">
         <h1>Todos</h1>
       </header>
+      {!isOnline && (
+        <div className="offline-banner">Offline — changes will sync when connected</div>
+      )}
 
       <form className="new-form" onSubmit={handleCreate}>
         <div className="new-form-fields">
