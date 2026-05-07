@@ -1,5 +1,5 @@
 import { Link, useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import type { Todo } from "@todo-app/types";
 
 import {
@@ -19,11 +20,27 @@ import {
   useTodos,
   useUpdateTodo,
 } from "@/hooks/useTodos";
+import { signOut } from "@/lib/auth";
 
 type Filter = "all" | "active" | "done";
 
 export default function ListScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable
+          onPress={() => { signOut(); router.replace("/sign-in"); }}
+          style={{ marginRight: 16 }}
+          hitSlop={10}
+        >
+          <Text style={{ color: "#2a7", fontWeight: "600" }}>Sign out</Text>
+        </Pressable>
+      ),
+    });
+  }, [navigation, router]);
   const isOnline = useIsOnline();
   const { data, isLoading, isRefetching, refetch, error } = useTodos();
   const [search, setSearch] = useState("");
