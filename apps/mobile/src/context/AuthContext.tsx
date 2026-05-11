@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { getCurrentUser, initAuth } from "@/lib/auth";
 
 type AuthContextType = {
@@ -13,7 +13,7 @@ const AuthContext = createContext<AuthContextType>({
   authReady: false,
 });
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [isSignedIn, setIsSignedIn] = useState(false);
   const [authReady, setAuthReady] = useState(false);
 

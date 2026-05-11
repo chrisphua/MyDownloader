@@ -20,18 +20,18 @@ const memCache: Record<string, string> = {};
 const storage: ICognitoStorage = {
   setItem(key, value) {
     memCache[key] = value;
-    AsyncStorage.setItem(key, value);
+    void AsyncStorage.setItem(key, value);
   },
   getItem(key) {
     return memCache[key] ?? null;
   },
   removeItem(key) {
     delete memCache[key];
-    AsyncStorage.removeItem(key);
+    void AsyncStorage.removeItem(key);
   },
   clear() {
     Object.keys(memCache).forEach((k) => delete memCache[k]);
-    AsyncStorage.clear();
+    void AsyncStorage.clear();
   },
 };
 

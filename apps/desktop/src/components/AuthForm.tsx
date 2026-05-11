@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { confirmSignUp, signIn, signUp } from "@/lib/auth";
 
 type Screen = "sign-in" | "sign-up" | "confirm";
@@ -11,7 +11,7 @@ export function AuthForm({ onSignedIn }: { onSignedIn: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  async function handleSignIn(e: React.FormEvent) {
+  async function handleSignIn(e: FormEvent) {
     e.preventDefault();
     const em = email.trim();
     if (!em || !password) { setError("Email and password are required"); return; }
@@ -24,7 +24,7 @@ export function AuthForm({ onSignedIn }: { onSignedIn: () => void }) {
     } finally { setLoading(false); }
   }
 
-  async function handleSignUp(e: React.FormEvent) {
+  async function handleSignUp(e: FormEvent) {
     e.preventDefault();
     const em = email.trim();
     if (!em || !password) { setError("Email and password are required"); return; }
@@ -38,7 +38,7 @@ export function AuthForm({ onSignedIn }: { onSignedIn: () => void }) {
     } finally { setLoading(false); }
   }
 
-  async function handleConfirm(e: React.FormEvent) {
+  async function handleConfirm(e: FormEvent) {
     e.preventDefault();
     if (!code.trim()) { setError("Verification code is required"); return; }
     setError(""); setLoading(true);

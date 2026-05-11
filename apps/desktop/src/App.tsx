@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import type { Todo } from "@todo-app/types";
 import { useCreateTodo, useDeleteTodo, useIsOnline, useTodos, useUpdateTodo } from "@/hooks/useTodos";
 import { AuthForm } from "@/components/AuthForm";
@@ -55,7 +55,7 @@ function TodosPage() {
     return matchesSearch && matchesFilter;
   });
 
-  function handleCreate(e: React.FormEvent) {
+  function handleCreate(e: FormEvent) {
     e.preventDefault();
     const title = newTitle.trim();
     if (!title) { setFormError("Title is required"); return; }

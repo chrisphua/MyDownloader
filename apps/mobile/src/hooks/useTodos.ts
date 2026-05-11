@@ -91,8 +91,8 @@ export function useUpdateTodo(id: string) {
       qc.setQueryData(keys.detail(id), ctx?.previousDetail);
     },
     onSettled: () => {
-      qc.invalidateQueries({ queryKey: keys.all });
-      qc.invalidateQueries({ queryKey: keys.detail(id) });
+      void qc.invalidateQueries({ queryKey: keys.all });
+      void qc.invalidateQueries({ queryKey: keys.detail(id) });
     },
   });
 }
