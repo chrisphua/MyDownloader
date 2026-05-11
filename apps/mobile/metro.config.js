@@ -20,7 +20,7 @@ config.resolver.nodeModulesPaths = [
 // (./node_modules/expo-router/entry) which it can't find locally. This intercepts
 // those paths and converts them to bare module names so nodeModulesPaths kicks in.
 config.resolver.resolveRequest = (context, moduleName, platform) => {
-  if (moduleName.startsWith("./node_modules/") || moduleName.startsWith("../node_modules/")) {
+  if (/^(\.+\/)+node_modules\//.test(moduleName)) {
     const bareName = moduleName.replace(/^(\.+\/)+node_modules\//, "");
     return context.resolveRequest(context, bareName, platform);
   }

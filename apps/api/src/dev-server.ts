@@ -39,7 +39,7 @@ app.use("/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 // Handle CORS preflight for all routes (mirrors the headers in lib/http.ts).
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
   if (req.method === "OPTIONS") {
     res.sendStatus(204);
@@ -47,6 +47,17 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+function extractSub(authHeader?: string): string {
+  if (authHeader?.startsWith("Bearer ")) {
+    try {
+      const payload = authHeader.slice(7).split(".")[1];
+      const claims = JSON.parse(Buffer.from(payload, "base64url").toString()) as Record<string, unknown>;
+      if (typeof claims.sub === "string") return claims.sub;
+    } catch {}
+  }
+  return process.env.DEV_USER_ID ?? "local-dev-user";
+}
 
 /**
  * Adapter: turn an Express request into the API Gateway v2 event shape that
@@ -64,7 +75,7 @@ function adapt(
       rawQueryString: "",
       headers: req.headers as Record<string, string>,
       requestContext: {
-        authorizer: { jwt: { claims: { sub: process.env.DEV_USER_ID ?? "local-dev-user" } } },
+        authorizer: { jwt: { claims: { sub: extractSub(req.headers.authorization) } } },
       } as unknown as APIGatewayProxyEventV2["requestContext"],
       body: req.body ? JSON.stringify(req.body) : undefined,
       pathParameters: req.params,
