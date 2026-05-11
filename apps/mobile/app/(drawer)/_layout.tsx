@@ -41,8 +41,8 @@ function CustomDrawerContent({ state, descriptors, navigation: drawerNav }: Draw
       </Text>
 
       {state.routes.map((route, i) => {
-        const { options } = descriptors[route.key];
-        const label = options.drawerLabel ?? options.title ?? route.name;
+        const options = descriptors[route.key]?.options;
+        const label = options?.drawerLabel ?? options?.title ?? route.name;
         const isFocused = state.index === i;
         return (
           <Pressable
@@ -58,7 +58,7 @@ function CustomDrawerContent({ state, descriptors, navigation: drawerNav }: Draw
               backgroundColor: isFocused ? "rgba(255,255,255,0.12)" : "transparent",
             }}
           >
-            {options.drawerIcon?.({ color: "rgba(255,255,255,0.7)", size: 16, focused: isFocused })}
+            {options?.drawerIcon?.({ color: "rgba(255,255,255,0.7)", size: 16, focused: isFocused })}
             <Text style={{ color: isFocused ? "#fff" : "rgba(255,255,255,0.55)", fontSize: 14, fontWeight: "500" }}>
               {label}
             </Text>
