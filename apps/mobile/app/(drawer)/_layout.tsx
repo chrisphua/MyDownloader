@@ -1,6 +1,6 @@
 import { Drawer } from "expo-router/drawer";
 import type { DrawerContentComponentProps } from "@react-navigation/drawer";
-import { Pressable, Text } from "react-native";
+import { Platform, Pressable, Text } from "react-native";
 import { DrawerActions } from "@react-navigation/native";
 import { signOut } from "@/lib/auth";
 import { useAuth } from "@/context/AuthContext";
@@ -11,6 +11,7 @@ export default function DrawerLayout() {
       screenOptions={{
         headerStyle: { backgroundColor: "#f8f8fa" },
         headerTitleStyle: { fontWeight: "600" },
+        drawerType: Platform.OS === "web" ? "permanent" : "front",
         drawerStyle: { backgroundColor: "#1c1c1e", width: 220 },
         drawerLabelStyle: { color: "#fff", fontSize: 14, fontWeight: "500" },
         drawerActiveTintColor: "#fff",
@@ -35,7 +36,7 @@ function CustomDrawerContent({ state, descriptors, navigation: drawerNav }: Draw
   const { setIsSignedIn } = useAuth();
 
   return (
-    <Pressable style={{ flex: 1 }} onPress={() => drawerNav.dispatch(DrawerActions.closeDrawer())}>
+    <Pressable style={{ flex: 1 }} onPress={Platform.OS !== "web" ? () => drawerNav.dispatch(DrawerActions.closeDrawer()) : undefined}>
       <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700", padding: 24, paddingTop: 56, borderBottomWidth: 1, borderBottomColor: "rgba(255,255,255,0.08)" }}>
         ◈  Todo App
       </Text>
