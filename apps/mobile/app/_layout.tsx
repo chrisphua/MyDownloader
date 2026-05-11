@@ -82,7 +82,7 @@ function AuthGate() {
         headerTitleStyle: { fontWeight: "600" },
       }}
     >
-      <Stack.Screen name="index" options={{ title: "Todos" }} />
+      <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
       <Stack.Screen
         name="todo/new"
         options={{ title: "New todo", presentation: "modal" }}

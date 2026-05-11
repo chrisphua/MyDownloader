@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Todo } from "@todo-app/types";
 import { useCreateTodo, useDeleteTodo, useIsOnline, useTodos, useUpdateTodo } from "@/hooks/useTodos";
 import { AuthForm } from "@/components/AuthForm";
+import { Sidebar, type Page } from "@/components/Sidebar";
 import { getCurrentUser, signOut } from "@/lib/auth";
 
 type Filter = "all" | "active" | "done";
@@ -19,10 +20,23 @@ export function App() {
     return <AuthForm onSignedIn={() => setIsSignedIn(true)} />;
   }
 
-  return <TodoApp onSignOut={() => { signOut(); setIsSignedIn(false); }} />;
+  return <Shell onSignOut={() => { signOut(); setIsSignedIn(false); }} />;
 }
 
-function TodoApp({ onSignOut }: { onSignOut: () => void }) {
+function Shell({ onSignOut }: { onSignOut: () => void }) {
+  const [page, setPage] = useState<Page>("todos");
+
+  return (
+    <div className="app-shell">
+      <Sidebar activePage={page} onNavigate={setPage} onSignOut={onSignOut} />
+      <div className="page-content">
+        {page === "todos" && <TodosPage />}
+      </div>
+    </div>
+  );
+}
+
+function TodosPage() {
   const isOnline = useIsOnline();
   const { data: todos, isLoading, error, refetch } = useTodos();
   const createTodo = useCreateTodo();
@@ -76,7 +90,6 @@ function TodoApp({ onSignOut }: { onSignOut: () => void }) {
     <div className="layout">
       <header className="titlebar">
         <h1>Todos</h1>
-        <button className="btn-signout" onClick={onSignOut}>Sign out</button>
       </header>
       {!isOnline && (
         <div className="offline-banner">Offline — changes will sync when connected</div>
