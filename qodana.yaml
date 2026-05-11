@@ -4,6 +4,7 @@
 
 version: "1.0"
 linter: jetbrains/qodana-js:2024.3
+bootstrap: npm install --legacy-peer-deps
 profile:
   name: qodana.recommended
 include:
@@ -12,4 +13,3 @@ exclude:
   - name: WrongTsConfigExtendsPath
     paths:
       - apps/mobile/tsconfig.json
-  - name: EslintSetup
