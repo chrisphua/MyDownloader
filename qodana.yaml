@@ -12,3 +12,4 @@ exclude:
   - name: WrongTsConfigExtendsPath
     paths:
       - apps/mobile/tsconfig.json
+  - name: EslintSetup
