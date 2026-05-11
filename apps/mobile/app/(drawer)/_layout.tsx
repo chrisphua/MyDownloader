@@ -71,7 +71,7 @@ function CustomDrawerContent({ state, descriptors, navigation: drawerNav }: Draw
       })}
 
       <Pressable
-        onPress={() => { signOut(); setIsSignedIn(false); }}
+        onPress={() => { void signOut(); setIsSignedIn(false); }}
         style={{
           flexDirection: "row",
           alignItems: "center",

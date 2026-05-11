@@ -64,8 +64,7 @@ function AuthGate() {
     if (!authReady) return;
     const onAuthScreen =
       segments[0] === "sign-in" ||
-      segments[0] === "sign-up" ||
-      segments[0] === "confirm";
+      segments[0] === "sign-up";
     if (!isSignedIn && !onAuthScreen) {
       router.replace("/sign-in");
     } else if (isSignedIn && onAuthScreen) {

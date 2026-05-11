@@ -7,11 +7,13 @@ import {
   type StackProps,
 } from "aws-cdk-lib";
 import * as apigwv2 from "aws-cdk-lib/aws-apigatewayv2";
-import { HttpJwtAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
+import {
+  HttpLambdaAuthorizer,
+  HttpLambdaResponseType,
+} from "aws-cdk-lib/aws-apigatewayv2-authorizers";
 import * as integrations from "aws-cdk-lib/aws-apigatewayv2-integrations";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
-import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
@@ -26,36 +28,9 @@ export class TodoAppStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    /* ---------------------------------------------------------------- */
-    /* Cognito User Pool                                                */
-    /* ---------------------------------------------------------------- */
-    const userPool = new cognito.UserPool(this, "TodoUserPool", {
-      selfSignUpEnabled: true,
-      signInAliases: { email: true },
-      autoVerify: { email: true },
-      passwordPolicy: {
-        minLength: 8,
-        requireUppercase: false,
-        requireDigits: true,
-        requireSymbols: false,
-      },
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
-
-    const userPoolClient = new cognito.UserPoolClient(this, "TodoUserPoolClient", {
-      userPool,
-      authFlows: {
-        userPassword: true,
-        userSrp: true,
-      },
-      generateSecret: false,
-    });
-
-    const jwtAuthorizer = new HttpJwtAuthorizer(
-      "CognitoAuthorizer",
-      `https://cognito-idp.${this.region}.amazonaws.com/${userPool.userPoolId}`,
-      { jwtAudience: [userPoolClient.userPoolClientId] },
-    );
+    // JWT_SECRET must be passed in via CDK context: cdk deploy -c jwtSecret=<value>
+    const jwtSecret = this.node.tryGetContext("jwtSecret") as string | undefined;
+    if (!jwtSecret) throw new Error("Required CDK context variable missing: jwtSecret");
 
     /* ---------------------------------------------------------------- */
     /* DynamoDB                                                         */
@@ -66,7 +41,6 @@ export class TodoAppStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    // GSI so we can query all todos belonging to a user efficiently.
     todosTable.addGlobalSecondaryIndex({
       indexName: "userId-index",
       partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
@@ -74,50 +48,65 @@ export class TodoAppStack extends Stack {
       projectionType: dynamodb.ProjectionType.ALL,
     });
 
+    const usersTable = new dynamodb.Table(this, "UsersTable", {
+      partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    usersTable.addGlobalSecondaryIndex({
+      indexName: "email-index",
+      partitionKey: { name: "email", type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
     /* ---------------------------------------------------------------- */
-    /* Lambda functions (one per handler)                               */
+    /* Lambda functions                                                 */
     /* ---------------------------------------------------------------- */
-    const sharedFnProps: Omit<import("aws-cdk-lib/aws-lambda-nodejs").NodejsFunctionProps, "entry"> = {
+    const bundling = { externalModules: [] as string[], minify: true, sourceMap: true };
+
+    const sharedEnv = {
+      TODOS_TABLE_NAME: todosTable.tableName,
+      TODOS_USER_INDEX: "userId-index",
+    };
+
+    const authEnv = {
+      USERS_TABLE_NAME: usersTable.tableName,
+      USERS_EMAIL_INDEX: "email-index",
+      JWT_SECRET: jwtSecret,
+    };
+
+    const fnDefaults = {
       runtime: Runtime.NODEJS_20_X,
       memorySize: 512,
       timeout: Duration.seconds(10),
-      environment: {
-        TODOS_TABLE_NAME: todosTable.tableName,
-        TODOS_USER_INDEX: "userId-index",
-      },
-      bundling: {
-        externalModules: [],
-        minify: true,
-        sourceMap: true,
-      },
+      bundling,
     };
 
-    const listFn = new NodejsFunction(this, "ListTodosFn", {
-      ...sharedFnProps,
-      entry: path.join(API_DIR, "handlers/listTodos.ts"),
-    });
-    const getFn = new NodejsFunction(this, "GetTodoFn", {
-      ...sharedFnProps,
-      entry: path.join(API_DIR, "handlers/getTodo.ts"),
-    });
-    const createFn = new NodejsFunction(this, "CreateTodoFn", {
-      ...sharedFnProps,
-      entry: path.join(API_DIR, "handlers/createTodo.ts"),
-    });
-    const updateFn = new NodejsFunction(this, "UpdateTodoFn", {
-      ...sharedFnProps,
-      entry: path.join(API_DIR, "handlers/updateTodo.ts"),
-    });
-    const deleteFn = new NodejsFunction(this, "DeleteTodoFn", {
-      ...sharedFnProps,
-      entry: path.join(API_DIR, "handlers/deleteTodo.ts"),
-    });
+    const listFn = new NodejsFunction(this, "ListTodosFn", { ...fnDefaults, entry: path.join(API_DIR, "handlers/listTodos.ts"), environment: sharedEnv });
+    const getFn = new NodejsFunction(this, "GetTodoFn", { ...fnDefaults, entry: path.join(API_DIR, "handlers/getTodo.ts"), environment: sharedEnv });
+    const createFn = new NodejsFunction(this, "CreateTodoFn", { ...fnDefaults, entry: path.join(API_DIR, "handlers/createTodo.ts"), environment: sharedEnv });
+    const updateFn = new NodejsFunction(this, "UpdateTodoFn", { ...fnDefaults, entry: path.join(API_DIR, "handlers/updateTodo.ts"), environment: sharedEnv });
+    const deleteFn = new NodejsFunction(this, "DeleteTodoFn", { ...fnDefaults, entry: path.join(API_DIR, "handlers/deleteTodo.ts"), environment: sharedEnv });
 
     todosTable.grantReadData(listFn);
     todosTable.grantReadData(getFn);
     todosTable.grantWriteData(createFn);
     todosTable.grantReadWriteData(updateFn);
     todosTable.grantWriteData(deleteFn);
+
+    const registerFn = new NodejsFunction(this, "RegisterFn", { ...fnDefaults, entry: path.join(API_DIR, "handlers/register.ts"), environment: authEnv });
+    const loginFn = new NodejsFunction(this, "LoginFn", { ...fnDefaults, entry: path.join(API_DIR, "handlers/login.ts"), environment: authEnv });
+    const authorizerFn = new NodejsFunction(this, "AuthorizerFn", {
+      ...fnDefaults,
+      memorySize: 256,
+      timeout: Duration.seconds(5),
+      entry: path.join(API_DIR, "handlers/authorizer.ts"),
+      environment: { JWT_SECRET: jwtSecret },
+    });
+
+    usersTable.grantReadWriteData(registerFn);
+    usersTable.grantReadData(loginFn);
 
     /* ---------------------------------------------------------------- */
     /* HTTP API                                                         */
@@ -136,12 +125,18 @@ export class TodoAppStack extends Stack {
       },
     });
 
-    const routes: Array<{
-      path: string;
-      method: apigwv2.HttpMethod;
-      fn: NodejsFunction;
-      name: string;
-    }> = [
+    const jwtAuthorizer = new HttpLambdaAuthorizer("JwtAuthorizer", authorizerFn, {
+      responseTypes: [HttpLambdaResponseType.SIMPLE],
+      identitySource: ["$request.header.Authorization"],
+      resultsCacheTtl: Duration.minutes(5),
+    });
+
+    // Public auth routes — no authorizer
+    httpApi.addRoutes({ path: "/auth/register", methods: [apigwv2.HttpMethod.POST], integration: new integrations.HttpLambdaIntegration("RegisterIntegration", registerFn) });
+    httpApi.addRoutes({ path: "/auth/login", methods: [apigwv2.HttpMethod.POST], integration: new integrations.HttpLambdaIntegration("LoginIntegration", loginFn) });
+
+    // Protected todo routes
+    const todoRoutes: Array<{ path: string; method: apigwv2.HttpMethod; fn: NodejsFunction; name: string }> = [
       { path: "/todos", method: apigwv2.HttpMethod.GET, fn: listFn, name: "List" },
       { path: "/todos", method: apigwv2.HttpMethod.POST, fn: createFn, name: "Create" },
       { path: "/todos/{id}", method: apigwv2.HttpMethod.GET, fn: getFn, name: "Get" },
@@ -149,14 +144,11 @@ export class TodoAppStack extends Stack {
       { path: "/todos/{id}", method: apigwv2.HttpMethod.DELETE, fn: deleteFn, name: "Delete" },
     ];
 
-    for (const route of routes) {
+    for (const route of todoRoutes) {
       httpApi.addRoutes({
         path: route.path,
         methods: [route.method],
-        integration: new integrations.HttpLambdaIntegration(
-          `${route.name}Integration`,
-          route.fn,
-        ),
+        integration: new integrations.HttpLambdaIntegration(`${route.name}Integration`, route.fn),
         authorizer: jwtAuthorizer,
       });
     }
@@ -194,29 +186,10 @@ export class TodoAppStack extends Stack {
     /* ---------------------------------------------------------------- */
     /* Outputs                                                          */
     /* ---------------------------------------------------------------- */
-    new CfnOutput(this, "ApiUrl", {
-      value: httpApi.apiEndpoint,
-      description: "Base URL of the HTTP API (no trailing slash)",
-    });
-    new CfnOutput(this, "WebUrl", {
-      value: `https://${distribution.distributionDomainName}`,
-      description: "Public URL of the web app",
-    });
-    new CfnOutput(this, "WebBucketName", {
-      value: webBucket.bucketName,
-      description: "S3 bucket holding the web build",
-    });
-    new CfnOutput(this, "TodosTableName", {
-      value: todosTable.tableName,
-      description: "DynamoDB table name",
-    });
-    new CfnOutput(this, "UserPoolId", {
-      value: userPool.userPoolId,
-      description: "Cognito User Pool ID — set as EXPO_PUBLIC_USER_POOL_ID / VITE_USER_POOL_ID",
-    });
-    new CfnOutput(this, "UserPoolClientId", {
-      value: userPoolClient.userPoolClientId,
-      description: "Cognito App Client ID — set as EXPO_PUBLIC_USER_POOL_CLIENT_ID / VITE_USER_POOL_CLIENT_ID",
-    });
+    new CfnOutput(this, "ApiUrl", { value: httpApi.apiEndpoint, description: "Base URL of the HTTP API" });
+    new CfnOutput(this, "WebUrl", { value: `https://${distribution.distributionDomainName}`, description: "Public URL of the web app" });
+    new CfnOutput(this, "WebBucketName", { value: webBucket.bucketName });
+    new CfnOutput(this, "TodosTableName", { value: todosTable.tableName });
+    new CfnOutput(this, "UsersTableName", { value: usersTable.tableName });
   }
 }

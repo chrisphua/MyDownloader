@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { getCurrentUser, initAuth } from "@/lib/auth";
+import { hasStoredToken, initAuth } from "@/lib/auth";
 
 type AuthContextType = {
   isSignedIn: boolean;
@@ -19,7 +19,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     initAuth().then(() => {
-      setIsSignedIn(!!getCurrentUser());
+      setIsSignedIn(hasStoredToken());
       setAuthReady(true);
     });
   }, []);

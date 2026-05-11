@@ -1,10 +1,10 @@
 /**
- * Idempotently create the local Todos table in DynamoDB Local.
+ * Idempotently create local DynamoDB tables.
  *
  * Run after `docker compose up -d`:
  *   npm run db:bootstrap
  *
- * Re-running is a no-op (skips if the table already exists).
+ * Re-running is a no-op (skips tables that already exist).
  */
 import {
   CreateTableCommand,
@@ -14,7 +14,8 @@ import {
 } from "@aws-sdk/client-dynamodb";
 
 const endpoint = process.env.DYNAMODB_ENDPOINT ?? "http://localhost:8000";
-const tableName = process.env.TODOS_TABLE_NAME ?? "todos-local";
+const todosTableName = process.env.TODOS_TABLE_NAME ?? "todos-local";
+const usersTableName = process.env.USERS_TABLE_NAME ?? "users-local";
 
 const client = new DynamoDBClient({
   endpoint,
@@ -33,20 +34,59 @@ async function tableExists(name: string): Promise<boolean> {
 }
 
 async function main() {
-  if (await tableExists(tableName)) {
-    console.log(`Table "${tableName}" already exists at ${endpoint}. Skipping.`);
-    return;
+  // Todos table
+  if (await tableExists(todosTableName)) {
+    console.log(`Table "${todosTableName}" already exists. Skipping.`);
+  } else {
+    await client.send(
+      new CreateTableCommand({
+        TableName: todosTableName,
+        AttributeDefinitions: [
+          { AttributeName: "id", AttributeType: "S" },
+          { AttributeName: "userId", AttributeType: "S" },
+          { AttributeName: "createdAt", AttributeType: "S" },
+        ],
+        KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+        GlobalSecondaryIndexes: [
+          {
+            IndexName: "userId-index",
+            KeySchema: [
+              { AttributeName: "userId", KeyType: "HASH" },
+              { AttributeName: "createdAt", KeyType: "RANGE" },
+            ],
+            Projection: { ProjectionType: "ALL" },
+          },
+        ],
+        BillingMode: "PAY_PER_REQUEST",
+      }),
+    );
+    console.log(`Created table "${todosTableName}"`);
   }
 
-  await client.send(
-    new CreateTableCommand({
-      TableName: tableName,
-      AttributeDefinitions: [{ AttributeName: "id", AttributeType: "S" }],
-      KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
-      BillingMode: "PAY_PER_REQUEST",
-    }),
-  );
-  console.log(`Created table "${tableName}" at ${endpoint}`);
+  // Users table
+  if (await tableExists(usersTableName)) {
+    console.log(`Table "${usersTableName}" already exists. Skipping.`);
+  } else {
+    await client.send(
+      new CreateTableCommand({
+        TableName: usersTableName,
+        AttributeDefinitions: [
+          { AttributeName: "userId", AttributeType: "S" },
+          { AttributeName: "email", AttributeType: "S" },
+        ],
+        KeySchema: [{ AttributeName: "userId", KeyType: "HASH" }],
+        GlobalSecondaryIndexes: [
+          {
+            IndexName: "email-index",
+            KeySchema: [{ AttributeName: "email", KeyType: "HASH" }],
+            Projection: { ProjectionType: "ALL" },
+          },
+        ],
+        BillingMode: "PAY_PER_REQUEST",
+      }),
+    );
+    console.log(`Created table "${usersTableName}"`);
+  }
 }
 
 main().catch((err) => {

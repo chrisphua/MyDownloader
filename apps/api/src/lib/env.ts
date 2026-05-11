@@ -15,16 +15,10 @@ function required(name: string): string {
 }
 
 export const env = {
-  /** DynamoDB table name for todos. */
-  get TODOS_TABLE_NAME(): string {
-    return required("TODOS_TABLE_NAME");
-  },
-  /** Name of the userId GSI on the todos table. */
-  get TODOS_USER_INDEX(): string {
-    return required("TODOS_USER_INDEX");
-  },
-  /** AWS region (Lambda sets this automatically). */
-  get AWS_REGION(): string {
-    return required("AWS_REGION");
-  },
+  get TODOS_TABLE_NAME(): string { return required("TODOS_TABLE_NAME"); },
+  get TODOS_USER_INDEX(): string { return required("TODOS_USER_INDEX"); },
+  get USERS_TABLE_NAME(): string { return required("USERS_TABLE_NAME"); },
+  get USERS_EMAIL_INDEX(): string { return required("USERS_EMAIL_INDEX"); },
+  get JWT_SECRET(): string { return required("JWT_SECRET"); },
+  get AWS_REGION(): string { return required("AWS_REGION"); },
 };

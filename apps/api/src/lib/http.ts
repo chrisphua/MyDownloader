@@ -122,13 +122,14 @@ export function withErrorHandling(
 }
 
 /**
- * Extract the authenticated user's Cognito `sub` from the JWT authorizer
- * context. Throws `ValidationError` (→ 400) if the claim is missing, which
- * only happens if a route is misconfigured to skip the authorizer.
+ * Extract the authenticated user's id from the JWT authorizer context.
+ * Supports both Lambda authorizer (authorizer.lambda.sub) and the legacy
+ * Cognito JWT authorizer (authorizer.jwt.claims.sub).
  */
 export function getUserId(event: APIGatewayProxyEventV2): string {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sub = (event.requestContext as any).authorizer?.jwt?.claims?.sub as string | undefined;
+  const ctx = (event.requestContext as any).authorizer;
+  const sub = (ctx?.lambda?.sub ?? ctx?.jwt?.claims?.sub) as string | undefined;
   if (!sub) throw new ValidationError("Missing user identity — is the JWT authorizer attached?");
   return sub;
 }

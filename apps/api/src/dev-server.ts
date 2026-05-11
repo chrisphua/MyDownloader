@@ -28,6 +28,8 @@ import { handler as getTodo } from "./handlers/getTodo.js";
 import { handler as createTodo } from "./handlers/createTodo.js";
 import { handler as updateTodo } from "./handlers/updateTodo.js";
 import { handler as deleteTodo } from "./handlers/deleteTodo.js";
+import { handler as register } from "./handlers/register.js";
+import { handler as login } from "./handlers/login.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const swaggerSpec = parse(readFileSync(resolve(__dirname, "../openapi.yaml"), "utf-8"));
@@ -51,7 +53,7 @@ app.use((req, res, next) => {
 function extractSub(authHeader?: string): string {
   if (authHeader?.startsWith("Bearer ")) {
     try {
-      const payload = authHeader.slice(7).split(".")[1];
+      const payload = authHeader.slice(7).split(".")[1] ?? "";
       const claims = JSON.parse(Buffer.from(payload, "base64url").toString()) as Record<string, unknown>;
       if (typeof claims.sub === "string") return claims.sub;
     } catch {}
@@ -92,6 +94,10 @@ function adapt(
     res.send(result.body ?? "");
   };
 }
+
+// Auth routes — no JWT needed, use a simple adapter without user injection.
+app.post("/auth/register", adapt(register));
+app.post("/auth/login", adapt(login));
 
 app.get("/todos", adapt(listTodos));
 app.get("/todos/:id", adapt(getTodo));

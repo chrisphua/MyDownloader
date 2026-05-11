@@ -1,106 +1,47 @@
-/**
- * Thin wrapper around amazon-cognito-identity-js for React Native.
- *
- * Uses an in-memory cache backed by AsyncStorage so the SDK's synchronous
- * ICognitoStorage interface is satisfied while tokens survive app restarts.
- */
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import {
-  AuthenticationDetails,
-  CognitoUser,
-  CognitoUserPool,
-  CognitoUserAttribute,
-  type ICognitoStorage,
-} from "amazon-cognito-identity-js";
-import { COGNITO } from "@/config/cognito";
+import { env } from "@/config/env";
 
-// Synchronous in-memory cache populated from AsyncStorage on init.
-const memCache: Record<string, string> = {};
+const TOKEN_KEY = "auth_token";
+let memToken: string | null = null;
 
-const storage: ICognitoStorage = {
-  setItem(key, value) {
-    memCache[key] = value;
-    void AsyncStorage.setItem(key, value);
-  },
-  getItem(key) {
-    return memCache[key] ?? null;
-  },
-  removeItem(key) {
-    delete memCache[key];
-    void AsyncStorage.removeItem(key);
-  },
-  clear() {
-    Object.keys(memCache).forEach((k) => delete memCache[k]);
-    void AsyncStorage.clear();
-  },
-};
-
-const userPool = new CognitoUserPool({
-  UserPoolId: COGNITO.userPoolId,
-  ClientId: COGNITO.userPoolClientId,
-  Storage: storage,
-});
-
-/** Populate the in-memory cache from AsyncStorage (call once on app start). */
 export async function initAuth(): Promise<void> {
-  const keys = await AsyncStorage.getAllKeys();
-  const cognitoKeys = keys.filter(
-    (k) => k.startsWith("CognitoIdentityServiceProvider"),
-  );
-  if (cognitoKeys.length > 0) {
-    const pairs = await AsyncStorage.multiGet(cognitoKeys);
-    pairs.forEach(([k, v]) => { if (v) memCache[k] = v; });
-  }
+  memToken = await AsyncStorage.getItem(TOKEN_KEY);
 }
 
-export function getCurrentUser(): CognitoUser | null {
-  return userPool.getCurrentUser();
+export function hasStoredToken(): boolean {
+  return memToken !== null;
 }
 
-/** Returns the current access token, refreshing silently if needed. */
-export function getAccessToken(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const user = userPool.getCurrentUser();
-    if (!user) { reject(new Error("Not authenticated")); return; }
-    user.getSession((err: Error | null, session: { isValid(): boolean; getAccessToken(): { getJwtToken(): string } } | null) => {
-      if (err || !session?.isValid()) { reject(err ?? new Error("Session invalid")); return; }
-      resolve(session.getAccessToken().getJwtToken());
-    });
+export async function getAccessToken(): Promise<string> {
+  if (!memToken) throw new Error("Not authenticated");
+  return memToken;
+}
+
+export async function signIn(email: string, password: string): Promise<void> {
+  const res = await fetch(`${env.API_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
   });
+  const data = await res.json() as { token?: string; message?: string };
+  if (!res.ok) throw new Error(data.message ?? "Sign-in failed");
+  memToken = data.token!;
+  await AsyncStorage.setItem(TOKEN_KEY, memToken);
 }
 
-export function signIn(email: string, password: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const user = new CognitoUser({ Username: email, Pool: userPool, Storage: storage });
-    user.authenticateUser(
-      new AuthenticationDetails({ Username: email, Password: password }),
-      {
-        onSuccess: () => resolve(),
-        onFailure: reject,
-      },
-    );
+export async function signUp(email: string, password: string): Promise<void> {
+  const res = await fetch(`${env.API_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
   });
+  const data = await res.json() as { token?: string; message?: string };
+  if (!res.ok) throw new Error(data.message ?? "Sign-up failed");
+  memToken = data.token!;
+  await AsyncStorage.setItem(TOKEN_KEY, memToken);
 }
 
-export function signUp(email: string, password: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    userPool.signUp(
-      email,
-      password,
-      [new CognitoUserAttribute({ Name: "email", Value: email })],
-      [],
-      (err) => (err ? reject(err) : resolve()),
-    );
-  });
-}
-
-export function confirmSignUp(email: string, code: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const user = new CognitoUser({ Username: email, Pool: userPool, Storage: storage });
-    user.confirmRegistration(code, true, (err) => (err ? reject(err) : resolve()));
-  });
-}
-
-export function signOut(): void {
-  userPool.getCurrentUser()?.signOut();
+export async function signOut(): Promise<void> {
+  memToken = null;
+  await AsyncStorage.removeItem(TOKEN_KEY);
 }

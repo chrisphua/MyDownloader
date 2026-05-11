@@ -1,4 +1,3 @@
-import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -10,10 +9,12 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { Link } from "expo-router";
 import { signUp } from "@/lib/auth";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SignUpScreen() {
-  const router = useRouter();
+  const { setIsSignedIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,7 +28,7 @@ export default function SignUpScreen() {
     setLoading(true);
     try {
       await signUp(e, password);
-      router.push({ pathname: "/confirm", params: { email: e } });
+      setIsSignedIn(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sign-up failed");
     } finally {
@@ -54,7 +55,7 @@ export default function SignUpScreen() {
         />
         <TextInput
           style={styles.input}
-          placeholder="Password (8+ chars, 1 digit)"
+          placeholder="Password (8+ chars)"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -64,8 +65,13 @@ export default function SignUpScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Pressable style={[styles.btn, loading && styles.btnDisabled]} onPress={handleSignUp} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Sign up</Text>}
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Create account</Text>}
         </Pressable>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Already have an account? </Text>
+          <Link href="/sign-in" style={styles.link}>Sign in</Link>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
@@ -88,4 +94,7 @@ const styles = StyleSheet.create({
   btn: { backgroundColor: "#2a7", borderRadius: 10, paddingVertical: 14, alignItems: "center", marginTop: 4 },
   btnDisabled: { opacity: 0.6 },
   btnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  footer: { flexDirection: "row", justifyContent: "center", marginTop: 8 },
+  footerText: { color: "#666" },
+  link: { color: "#2a7", fontWeight: "600" },
 });
