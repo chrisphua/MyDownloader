@@ -1,6 +1,6 @@
 import { Drawer } from "expo-router/drawer";
+import type { DrawerContentComponentProps } from "@react-navigation/drawer";
 import { Pressable, Text } from "react-native";
-import { useNavigation } from "@react-navigation/native";
 import { DrawerActions } from "@react-navigation/native";
 import { signOut } from "@/lib/auth";
 import { useAuth } from "@/context/AuthContext";
@@ -31,7 +31,7 @@ function DrawerIcon({ label }: { label: string }) {
   return <Text style={{ color: "rgba(255,255,255,0.7)", fontSize: 16, width: 20, textAlign: "center" }}>{label}</Text>;
 }
 
-function CustomDrawerContent({ state, descriptors, navigation: drawerNav }: any) {
+function CustomDrawerContent({ state, descriptors, navigation: drawerNav }: DrawerContentComponentProps) {
   const { setIsSignedIn } = useAuth();
 
   return (
@@ -40,7 +40,7 @@ function CustomDrawerContent({ state, descriptors, navigation: drawerNav }: any)
         ◈  Todo App
       </Text>
 
-      {state.routes.map((route: any, i: number) => {
+      {state.routes.map((route, i) => {
         const { options } = descriptors[route.key];
         const label = options.drawerLabel ?? options.title ?? route.name;
         const isFocused = state.index === i;
