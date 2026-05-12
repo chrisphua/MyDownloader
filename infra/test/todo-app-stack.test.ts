@@ -56,7 +56,7 @@ afterAll(() => {
 });
 
 function synth() {
-  const app = new cdk.App({ context: { jwtSecret: "test-secret" } });
+  const app = new cdk.App();
   const stack = new TodoAppStack(app, "TestStack");
   return Template.fromStack(stack);
 }

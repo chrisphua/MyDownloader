@@ -19,6 +19,7 @@ import { Runtime } from "aws-cdk-lib/aws-lambda";
 import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { Construct } from "constructs";
 
 const API_DIR = path.resolve(__dirname, "../../apps/api/src");
@@ -28,9 +29,13 @@ export class TodoAppStack extends Stack {
   constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    // JWT_SECRET must be passed in via CDK context: cdk deploy -c jwtSecret=<value>
-    const jwtSecret = this.node.tryGetContext("jwtSecret") as string | undefined;
-    if (!jwtSecret) throw new Error("Required CDK context variable missing: jwtSecret");
+    // JWT secret lives in Secrets Manager — resolved by CloudFormation at deploy time,
+    // so cdk bootstrap / cdk diff / cdk synth never need the actual value.
+    // Create once before first deploy:
+    //   aws secretsmanager create-secret --name todo-app/jwt-secret \
+    //     --secret-string "$(openssl rand -hex 32)"
+    const jwtSecretObj = secretsmanager.Secret.fromSecretNameV2(this, "JwtSecret", "todo-app/jwt-secret");
+    const jwtSecret = jwtSecretObj.secretValue.unsafeUnwrap();
 
     /* ---------------------------------------------------------------- */
     /* DynamoDB                                                         */
