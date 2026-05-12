@@ -116,6 +116,18 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
+      - name: Upsert JWT secret in Secrets Manager
+        run: |
+          aws secretsmanager describe-secret --secret-id todo-app/jwt-secret \
+            && aws secretsmanager update-secret \
+                 --secret-id todo-app/jwt-secret \
+                 --secret-string "{\"value\":\"$JWT_SECRET\"}" \
+            || aws secretsmanager create-secret \
+                 --name todo-app/jwt-secret \
+                 --secret-string "{\"value\":\"$JWT_SECRET\"}"
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+
       - name: CDK bootstrap
         run: npx cdk bootstrap --app "npx tsx infra/bin/todo-app.ts"
 
