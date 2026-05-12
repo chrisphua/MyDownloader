@@ -117,6 +117,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Upsert JWT secret in Secrets Manager
+        if: ${{ secrets.JWT_SECRET != '' }}
         run: |
           aws secretsmanager describe-secret --secret-id todo-app/jwt-secret \
             && aws secretsmanager update-secret \
