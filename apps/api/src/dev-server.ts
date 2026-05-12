@@ -15,8 +15,12 @@
  * automatically — no shell exports required.
  */
 import "dotenv/config";
-import { readFileSync } from "fs";
-import { resolve, dirname } from "path";
+import { createReadStream, mkdtempSync, readdirSync, readFileSync } from "fs";
+import { rm } from "fs/promises";
+import { tmpdir } from "os";
+import { resolve, dirname, join } from "path";
+import { spawn } from "child_process";
+import { EventEmitter } from "events";
 import { fileURLToPath } from "url";
 import express, { type Request, type Response } from "express";
 import type { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from "aws-lambda";
@@ -104,6 +108,126 @@ app.get("/todos/:id", adapt(getTodo));
 app.post("/todos", adapt(createTodo));
 app.put("/todos/:id", adapt(updateTodo));
 app.delete("/todos/:id", adapt(deleteTodo));
+
+// ── YouTube downloader (local dev only) ─────────────────────────────────────
+
+interface YtJob {
+  emitter: EventEmitter;
+  tmpDir: string;
+  format: string;
+  filename?: string;
+  done: boolean;
+  error?: string;
+}
+
+const ytJobs = new Map<string, YtJob>();
+
+// Start a download job — returns { jobId } immediately.
+app.post("/youtube/start", (req: Request, res: Response) => {
+  const { url, format = "mp3", resolution = "" } = req.body as { url?: string; format?: string; resolution?: string };
+  if (!url) { res.status(400).json({ message: "Missing url" }); return; }
+
+  const jobId = Math.random().toString(36).slice(2, 10);
+  const tmpDir = mkdtempSync(join(tmpdir(), "ytdl-"));
+  const emitter = new EventEmitter();
+  const job: YtJob = { emitter, tmpDir, format, done: false };
+  ytJobs.set(jobId, job);
+
+  const args = [
+    "--output", join(tmpDir, "%(title)s.%(ext)s"),
+    "--no-playlist", "--newline", "--no-colors",
+  ];
+  if (format === "mp3") {
+    args.push("--extract-audio", "--audio-format", "mp3", "--audio-quality", "0");
+  } else {
+    const fmtStr = resolution
+      ? `bestvideo[height<=${resolution}][ext=mp4]+bestaudio[ext=m4a]/best[height<=${resolution}]`
+      : "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best";
+    args.push("--format", fmtStr, "--merge-output-format", "mp4");
+  }
+  args.push(url);
+
+  const proc = spawn("yt-dlp", args);
+  const pctRe = /\[download\]\s+([\d.]+)%\s+of\s+[\d.]+\S+\s+at\s+([\d.]+\S+)\s+ETA\s+(\S+)/;
+  const postRe = /\[(ExtractAudio|Metadata|EmbedThumbnail|ThumbnailsConvertor|Merger|VideoConvertor)\]/;
+
+  function parseLine(line: string) {
+    const m = line.match(pctRe);
+    if (m) { emitter.emit("progress", { percent: parseFloat(m[1] ?? "0"), speed: m[2] ?? "", eta: m[3] ?? "" }); return; }
+    if (postRe.test(line)) { emitter.emit("progress", { percent: 100, speed: "", eta: "Processing…" }); }
+  }
+
+  proc.stdout.on("data", (d: Buffer) => d.toString().split("\n").forEach(parseLine));
+  proc.stderr.on("data", (d: Buffer) => d.toString().split("\n").forEach(parseLine));
+
+  proc.on("close", async (code) => {
+    if (code !== 0) {
+      job.done = true; job.error = "yt-dlp exited with error";
+      emitter.emit("error", job.error);
+      return;
+    }
+    const files = readdirSync(tmpDir);
+    if (!files.length) {
+      job.done = true; job.error = "No output file produced";
+      emitter.emit("error", job.error);
+      return;
+    }
+    job.filename = files[0]!;
+    job.done = true;
+    emitter.emit("done");
+  });
+
+  res.json({ jobId });
+});
+
+// SSE stream — emits `progress`, `done`, or `error` events.
+app.get("/youtube/progress/:jobId", (req: Request, res: Response) => {
+  const job = ytJobs.get(req.params["jobId"] ?? "");
+  if (!job) { res.status(404).json({ message: "Job not found" }); return; }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  const send = (event: string, data: unknown) =>
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+
+  if (job.done) {
+    if (job.error) { send("error", { message: job.error }); } else { send("done", {}); }
+    res.end();
+    return;
+  }
+
+  const onProgress = (d: unknown) => send("progress", d);
+  const onDone = () => { send("done", {}); res.end(); };
+  const onError = (msg: string) => { send("error", { message: msg }); res.end(); };
+
+  job.emitter.on("progress", onProgress);
+  job.emitter.once("done", onDone);
+  job.emitter.once("error", onError);
+  req.on("close", () => {
+    job.emitter.off("progress", onProgress);
+    job.emitter.off("done", onDone);
+    job.emitter.off("error", onError);
+  });
+});
+
+// Serve the completed file, then clean up.
+app.get("/youtube/file/:jobId", async (req: Request, res: Response) => {
+  const job = ytJobs.get(req.params["jobId"] ?? "");
+  if (!job?.done || !job.filename) { res.status(404).json({ message: "File not ready" }); return; }
+
+  const filePath = join(job.tmpDir, job.filename);
+  res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(job.filename)}`);
+  res.setHeader("Content-Type", job.format === "mp3" ? "audio/mpeg" : "video/mp4");
+  const stream = createReadStream(filePath);
+  stream.pipe(res);
+  stream.on("close", async () => {
+    ytJobs.delete(req.params["jobId"] ?? "");
+    await rm(job.tmpDir, { recursive: true, force: true });
+  });
+});
 
 const port = Number(process.env.PORT ?? 3000);
 app.listen(port, () => {

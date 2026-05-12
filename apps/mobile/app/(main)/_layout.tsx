@@ -46,6 +46,15 @@ export default function DrawerLayout() {
           headerLeft: () => <MenuButton />,
         }}
       />
+      <Drawer.Screen
+        name="youtube"
+        options={{
+          title: "YouTube Downloader",
+          drawerLabel: "YouTube",
+          drawerIcon: () => <DrawerIcon label="▶" />,
+          headerLeft: () => <MenuButton />,
+        }}
+      />
     </Drawer>
   );
 }
