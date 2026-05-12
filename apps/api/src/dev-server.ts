@@ -56,7 +56,7 @@ function extractSub(authHeader?: string): string {
       const payload = authHeader.slice(7).split(".")[1] ?? "";
       const claims = JSON.parse(Buffer.from(payload, "base64url").toString()) as Record<string, unknown>;
       if (typeof claims.sub === "string") return claims.sub;
-    } catch (_) { /* ignore malformed JWT */ }
+    } catch { /* ignore malformed JWT */ }
   }
   return process.env.DEV_USER_ID ?? "local-dev-user";
 }
