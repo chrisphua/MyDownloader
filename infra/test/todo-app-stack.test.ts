@@ -56,7 +56,7 @@ afterAll(() => {
 });
 
 function synth() {
-  const app = new cdk.App();
+  const app = new cdk.App({ context: { jwtSecret: "test-secret" } });
   const stack = new TodoAppStack(app, "TestStack");
   return Template.fromStack(stack);
 }
@@ -73,7 +73,7 @@ describe("TodoAppStack", () => {
     });
   });
 
-  it("creates exactly 5 Lambda functions for the 5 CRUD endpoints", () => {
+  it("creates exactly 8 Lambda functions (5 CRUD + register + login + authorizer)", () => {
     // Plus a couple of CDK-internal ones (BucketDeployment, log retention) —
     // we count by the runtime tag we actually set.
     const t = synth();
@@ -81,13 +81,13 @@ describe("TodoAppStack", () => {
     const ours = Object.values(lambdas).filter(
       (l) => l.Properties?.Runtime === "nodejs20.x",
     );
-    expect(ours.length).toBe(5);
+    expect(ours.length).toBe(8);
   });
 
-  it("creates an HTTP API with 5 routes", () => {
+  it("creates an HTTP API with 7 routes (5 CRUD + 2 auth)", () => {
     const t = synth();
     t.resourceCountIs("AWS::ApiGatewayV2::Api", 1);
-    t.resourceCountIs("AWS::ApiGatewayV2::Route", 5);
+    t.resourceCountIs("AWS::ApiGatewayV2::Route", 7);
   });
 
   it("creates an S3 bucket for the web build, encrypted and private", () => {
