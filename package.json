@@ -15,11 +15,15 @@
     "test": "npm run test --workspaces --if-present"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
+  },
+  "overrides": {
+    "expo": "~55.0.23"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.3.0",
+    "expo": "~55.0.23",
     "typescript": "^5.4.5",
     "typescript-eslint": "^8.59.2"
   }

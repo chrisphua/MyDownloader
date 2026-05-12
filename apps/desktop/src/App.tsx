@@ -3,17 +3,17 @@ import type { Todo } from "@todo-app/types";
 import { useCreateTodo, useDeleteTodo, useIsOnline, useTodos, useUpdateTodo } from "@/hooks/useTodos";
 import { AuthForm } from "@/components/AuthForm";
 import { Sidebar, type Page } from "@/components/Sidebar";
-import { getCurrentUser, signOut } from "@/lib/auth";
+import { getStoredToken, signOut } from "@/lib/auth";
 
 type Filter = "all" | "active" | "done";
 
 const PRIORITY_COLOR: Record<string, string> = { low: "#888", medium: "#f5a623", high: "#c33" };
 
 export function App() {
-  const [isSignedIn, setIsSignedIn] = useState(() => !!getCurrentUser());
+  const [isSignedIn, setIsSignedIn] = useState(() => !!getStoredToken());
 
   useEffect(() => {
-    setIsSignedIn(!!getCurrentUser());
+    setIsSignedIn(!!getStoredToken());
   }, []);
 
   if (!isSignedIn) {

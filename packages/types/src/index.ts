@@ -20,6 +20,8 @@ export interface Todo {
   done: boolean;
   /** Optional urgency level. */
   priority?: Priority;
+  /** Optional start date in YYYY-MM-DD format. */
+  startDate?: string;
   /** Optional due date in YYYY-MM-DD format. */
   dueDate?: string;
   /** ISO-8601 creation timestamp, set by the server. */
@@ -34,6 +36,7 @@ export interface CreateTodoInput {
   description?: string;
   done?: boolean;
   priority?: Priority;
+  startDate?: string;
   dueDate?: string;
 }
 
@@ -43,6 +46,7 @@ export interface UpdateTodoInput {
   description?: string;
   done?: boolean;
   priority?: Priority;
+  startDate?: string;
   dueDate?: string;
 }
 
@@ -80,6 +84,11 @@ export function validateCreateTodoInput(value: unknown): CreateTodoInput {
   if (body.priority !== undefined && !VALID_PRIORITIES.includes(body.priority as Priority)) {
     throw new Error("`priority` must be 'low', 'medium', or 'high' when provided");
   }
+  if (body.startDate !== undefined) {
+    if (typeof body.startDate !== "string" || !DUE_DATE_RE.test(body.startDate)) {
+      throw new Error("`startDate` must be a date string in YYYY-MM-DD format when provided");
+    }
+  }
   if (body.dueDate !== undefined) {
     if (typeof body.dueDate !== "string" || !DUE_DATE_RE.test(body.dueDate)) {
       throw new Error("`dueDate` must be a date string in YYYY-MM-DD format when provided");
@@ -91,6 +100,7 @@ export function validateCreateTodoInput(value: unknown): CreateTodoInput {
     description: body.description as string | undefined,
     done: body.done as boolean | undefined,
     priority: body.priority as Priority | undefined,
+    startDate: body.startDate as string | undefined,
     dueDate: body.dueDate as string | undefined,
   };
 }
@@ -130,6 +140,12 @@ export function validateUpdateTodoInput(value: unknown): UpdateTodoInput {
       throw new Error("`priority` must be 'low', 'medium', or 'high' when provided");
     }
     out.priority = body.priority as Priority;
+  }
+  if (body.startDate !== undefined) {
+    if (typeof body.startDate !== "string" || !DUE_DATE_RE.test(body.startDate)) {
+      throw new Error("`startDate` must be a date string in YYYY-MM-DD format when provided");
+    }
+    out.startDate = body.startDate;
   }
   if (body.dueDate !== undefined) {
     if (typeof body.dueDate !== "string" || !DUE_DATE_RE.test(body.dueDate)) {

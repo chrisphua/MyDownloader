@@ -38,6 +38,9 @@ export default function EditTodoScreen() {
       initial={{
         title: todoQuery.data.title,
         description: todoQuery.data.description,
+        priority: todoQuery.data.priority,
+        startDate: todoQuery.data.startDate,
+        dueDate: todoQuery.data.dueDate,
       }}
       submitLabel="Save"
       submitting={update.isPending}

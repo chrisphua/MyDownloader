@@ -1,65 +1,38 @@
-/**
- * Auth helpers for the Electron renderer process.
- * Uses amazon-cognito-identity-js with window.localStorage (default storage).
- */
-import {
-  AuthenticationDetails,
-  CognitoUser,
-  CognitoUserAttribute,
-  CognitoUserPool,
-} from "amazon-cognito-identity-js";
+const TOKEN_KEY = "auth_token";
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
-import { COGNITO } from "@/config/cognito";
-
-const userPool = new CognitoUserPool({
-  UserPoolId: COGNITO.userPoolId,
-  ClientId: COGNITO.userPoolClientId,
-});
-
-export function getCurrentUser(): CognitoUser | null {
-  return userPool.getCurrentUser();
+export function getStoredToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
 }
 
-export function getAccessToken(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const user = userPool.getCurrentUser();
-    if (!user) { reject(new Error("Not authenticated")); return; }
-    user.getSession((err: Error | null, session: { isValid(): boolean; getAccessToken(): { getJwtToken(): string } } | null) => {
-      if (err || !session?.isValid()) { reject(err ?? new Error("Session invalid")); return; }
-      resolve(session.getAccessToken().getJwtToken());
-    });
-  });
+export async function getAccessToken(): Promise<string> {
+  const token = localStorage.getItem(TOKEN_KEY);
+  if (!token) throw new Error("Not authenticated");
+  return token;
 }
 
-export function signIn(email: string, password: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const user = new CognitoUser({ Username: email, Pool: userPool });
-    user.authenticateUser(
-      new AuthenticationDetails({ Username: email, Password: password }),
-      { onSuccess: () => resolve(), onFailure: reject },
-    );
+export async function signIn(email: string, password: string): Promise<void> {
+  const res = await fetch(`${API_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
   });
+  const data = await res.json() as { token?: string; message?: string };
+  if (!res.ok) throw new Error(data.message ?? "Sign-in failed");
+  localStorage.setItem(TOKEN_KEY, data.token!);
 }
 
-export function signUp(email: string, password: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    userPool.signUp(
-      email,
-      password,
-      [new CognitoUserAttribute({ Name: "email", Value: email })],
-      [],
-      (err) => (err ? reject(err) : resolve()),
-    );
+export async function signUp(email: string, password: string): Promise<void> {
+  const res = await fetch(`${API_URL}/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
   });
-}
-
-export function confirmSignUp(email: string, code: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const user = new CognitoUser({ Username: email, Pool: userPool });
-    user.confirmRegistration(code, true, (err) => (err ? reject(err) : resolve()));
-  });
+  const data = await res.json() as { token?: string; message?: string };
+  if (!res.ok) throw new Error(data.message ?? "Sign-up failed");
+  localStorage.setItem(TOKEN_KEY, data.token!);
 }
 
 export function signOut(): void {
-  userPool.getCurrentUser()?.signOut();
+  localStorage.removeItem(TOKEN_KEY);
 }

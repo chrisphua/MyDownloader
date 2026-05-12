@@ -1,16 +1,33 @@
 import { Drawer } from "expo-router/drawer";
 import type { DrawerContentComponentProps } from "@react-navigation/drawer";
-import { Platform, Pressable, Text } from "react-native";
-import { DrawerActions } from "@react-navigation/native";
+import { Platform, Pressable, Text, View } from "react-native";
+import { DrawerActions, useNavigation } from "@react-navigation/native";
 import { signOut } from "@/lib/auth";
 import { useAuth } from "@/context/AuthContext";
+import { useTheme } from "@/context/ThemeContext";
+
+function MenuButton() {
+  const nav = useNavigation();
+  const { colors } = useTheme();
+  return (
+    <Pressable
+      onPress={() => nav.dispatch(DrawerActions.toggleDrawer())}
+      style={{ marginLeft: 16 }}
+      hitSlop={10}
+      accessibilityLabel="Toggle menu"
+    >
+      <Text style={{ fontSize: 22, color: colors.text }}>☰</Text>
+    </Pressable>
+  );
+}
 
 export default function DrawerLayout() {
+  const { colors } = useTheme();
   return (
     <Drawer
       screenOptions={{
-        headerStyle: { backgroundColor: "#f8f8fa" },
-        headerTitleStyle: { fontWeight: "600" },
+        headerStyle: { backgroundColor: colors.header },
+        headerTitleStyle: { fontWeight: "600", color: colors.text },
         drawerType: Platform.OS === "web" ? "permanent" : "front",
         drawerStyle: { backgroundColor: "#1c1c1e", width: 220 },
         drawerLabelStyle: { color: "#fff", fontSize: 14, fontWeight: "500" },
@@ -22,7 +39,12 @@ export default function DrawerLayout() {
     >
       <Drawer.Screen
         name="index"
-        options={{ title: "Todos", drawerLabel: "Todos", drawerIcon: () => <DrawerIcon label="✓" /> }}
+        options={{
+          title: "Tasks",
+          drawerLabel: "Tasks",
+          drawerIcon: () => <DrawerIcon label="✓" />,
+          headerLeft: () => <MenuButton />,
+        }}
       />
     </Drawer>
   );
@@ -34,6 +56,7 @@ function DrawerIcon({ label }: { label: string }) {
 
 function CustomDrawerContent({ state, descriptors, navigation: drawerNav }: DrawerContentComponentProps) {
   const { setIsSignedIn } = useAuth();
+  const { mode, setMode } = useTheme();
 
   return (
     <Pressable style={{ flex: 1 }} onPress={Platform.OS !== "web" ? () => drawerNav.dispatch(DrawerActions.closeDrawer()) : undefined}>
@@ -70,6 +93,34 @@ function CustomDrawerContent({ state, descriptors, navigation: drawerNav }: Draw
         );
       })}
 
+      {/* Dark mode toggle */}
+      <View style={{ margin: 8, padding: 12, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)", marginTop: "auto" }}>
+        <Text style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: "600", textTransform: "uppercase", marginBottom: 8, letterSpacing: 0.5 }}>
+          Appearance
+        </Text>
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          {(["light", "dark", "system"] as const).map((m) => (
+            <Pressable
+              key={m}
+              onPress={() => setMode(m)}
+              style={{
+                flex: 1,
+                paddingVertical: 6,
+                borderRadius: 6,
+                alignItems: "center",
+                backgroundColor: mode === m ? "rgba(255,255,255,0.18)" : "transparent",
+                borderWidth: 1,
+                borderColor: mode === m ? "rgba(255,255,255,0.3)" : "transparent",
+              }}
+            >
+              <Text style={{ fontSize: 14 }}>
+                {m === "light" ? "☀️" : m === "dark" ? "🌙" : "⚙️"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
       <Pressable
         onPress={() => { void signOut(); setIsSignedIn(false); }}
         style={{
@@ -79,10 +130,6 @@ function CustomDrawerContent({ state, descriptors, navigation: drawerNav }: Draw
           margin: 8,
           padding: 12,
           borderRadius: 8,
-          position: "absolute",
-          bottom: 16,
-          left: 0,
-          right: 0,
         }}
       >
         <Text style={{ color: "rgba(255,255,255,0.4)", fontSize: 16, width: 20, textAlign: "center" }}>⎋</Text>

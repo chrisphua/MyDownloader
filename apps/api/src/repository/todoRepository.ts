@@ -61,6 +61,7 @@ export const todoRepository = {
       description: input.description,
       done: input.done ?? false,
       priority: input.priority,
+      startDate: input.startDate,
       dueDate: input.dueDate,
       createdAt: now,
       updatedAt: now,
@@ -99,6 +100,11 @@ export const todoRepository = {
       setParts.push("#priority = :priority");
       names["#priority"] = "priority";
       values[":priority"] = input.priority;
+    }
+    if (input.startDate !== undefined) {
+      setParts.push("#startDate = :startDate");
+      names["#startDate"] = "startDate";
+      values[":startDate"] = input.startDate;
     }
     if (input.dueDate !== undefined) {
       setParts.push("#dueDate = :dueDate");

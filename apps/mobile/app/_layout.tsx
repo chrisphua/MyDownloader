@@ -9,6 +9,7 @@ import { useEffect } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { ThemeProvider } from "@/context/ThemeContext";
 
 onlineManager.setEventListener((setOnline) =>
   NetInfo.addEventListener((state) => setOnline(!!state.isConnected)),
@@ -42,6 +43,7 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
+      <ThemeProvider>
       <PersistQueryClientProvider
         client={queryClient}
         persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 }}
@@ -51,6 +53,7 @@ export default function RootLayout() {
           <AuthGate />
         </SafeAreaProvider>
       </PersistQueryClientProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }
@@ -81,7 +84,7 @@ function AuthGate() {
         headerTitleStyle: { fontWeight: "600" },
       }}
     >
-      <Stack.Screen name="(drawer)" options={{ headerShown: false }} />
+      <Stack.Screen name="(main)" options={{ headerShown: false }} />
       <Stack.Screen
         name="todo/new"
         options={{ title: "New todo", presentation: "modal" }}
@@ -89,7 +92,6 @@ function AuthGate() {
       <Stack.Screen name="todo/[id]" options={{ title: "Edit todo" }} />
       <Stack.Screen name="sign-in" options={{ headerShown: false }} />
       <Stack.Screen name="sign-up" options={{ headerShown: false }} />
-      <Stack.Screen name="confirm" options={{ headerShown: false }} />
     </Stack>
   );
 }

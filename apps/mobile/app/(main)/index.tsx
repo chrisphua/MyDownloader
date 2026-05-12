@@ -1,5 +1,5 @@
 import { Link, useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -11,9 +11,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
-import { DrawerActions } from "@react-navigation/native";
 import type { Todo } from "@todo-app/types";
+import { useTheme } from "@/context/ThemeContext";
+import type { AppColors } from "@/theme";
 
 import {
   useDeleteTodo,
@@ -24,24 +24,79 @@ import {
 
 type Filter = "all" | "active" | "done";
 
+function makeStyles(c: AppColors) {
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: c.bg },
+    center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 12 },
+    list: { padding: 16, paddingBottom: 96 },
+    sep: { height: 12 },
+    empty: { textAlign: "center", color: c.textSecondary, marginTop: 32 },
+
+    controls: { marginBottom: 12, gap: 8 },
+    searchInput: {
+      backgroundColor: c.surfaceAlt,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 9,
+      fontSize: 15,
+      color: c.text,
+    },
+    filterRow: { flexDirection: "row", gap: 8 },
+    filterBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: c.surfaceAlt },
+    filterBtnActive: { backgroundColor: c.accent },
+    filterText: { fontSize: 13, color: c.textSecondary, fontWeight: "500" },
+    filterTextActive: { color: "#fff" },
+
+    row: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: c.surface,
+      padding: 12,
+      borderRadius: 10,
+      gap: 12,
+    },
+    checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: c.textMuted, alignItems: "center", justifyContent: "center" },
+    checkboxDone: { borderColor: c.accent, backgroundColor: c.accent },
+    checkmark: { color: "#fff", fontWeight: "700" },
+    rowText: { flex: 1 },
+    title: { fontSize: 16, color: c.text },
+    titleDone: { color: c.textMuted, textDecorationLine: "line-through" },
+    subtitle: { color: c.textSecondary, marginTop: 2, fontSize: 13 },
+    metaRow: { flexDirection: "row", gap: 8, marginTop: 4 },
+    metaText: { fontSize: 11, fontWeight: "500", textTransform: "capitalize" },
+    delete: { color: c.danger, fontSize: 18, paddingHorizontal: 4 },
+
+    fab: {
+      position: "absolute",
+      right: 24,
+      bottom: 24,
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: c.accent,
+      alignItems: "center",
+      justifyContent: "center",
+      shadowColor: "#000",
+      shadowOpacity: 0.2,
+      shadowRadius: 6,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 3,
+    },
+    fabIcon: { color: "#fff", fontSize: 28, fontWeight: "300", lineHeight: 30 },
+    offlineBanner: { backgroundColor: c.warning, paddingVertical: 6, paddingHorizontal: 16 },
+    offlineText: { color: "#fff", fontSize: 13, textAlign: "center" },
+    error: { color: c.danger, textAlign: "center" },
+    retry: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6, backgroundColor: c.surfaceAlt },
+    retryText: { color: c.text },
+  });
+}
+
 export default function ListScreen() {
   const router = useRouter();
-  const navigation = useNavigation();
-
-  useEffect(() => {
-    navigation.setOptions({
-      headerLeft: () => (
-        <Pressable
-          onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-          style={{ marginLeft: 16 }}
-          hitSlop={10}
-        >
-          <Text style={{ fontSize: 20, color: "#333" }}>☰</Text>
-        </Pressable>
-      ),
-    });
-  }, [navigation]);
   const isOnline = useIsOnline();
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+
   const { data, isLoading, isRefetching, refetch, error } = useTodos();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -90,7 +145,7 @@ export default function ListScreen() {
             <TextInput
               style={styles.searchInput}
               placeholder="Search todos…"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={colors.textMuted}
               value={search}
               onChangeText={setSearch}
               clearButtonMode="while-editing"
@@ -121,7 +176,7 @@ export default function ListScreen() {
           <RefreshControl refreshing={isRefetching} onRefresh={refetch} />
         }
         renderItem={({ item }) => (
-          <TodoRow todo={item} onPress={() => router.push(`/todo/${item.id}`)} />
+          <TodoRow todo={item} onPress={() => router.push(`/todo/${item.id}`)} colors={colors} styles={styles} />
         )}
       />
       <Link href="/todo/new" asChild>
@@ -133,7 +188,9 @@ export default function ListScreen() {
   );
 }
 
-function TodoRow({ todo, onPress }: { todo: Todo; onPress: () => void }) {
+type Styles = ReturnType<typeof makeStyles>;
+
+function TodoRow({ todo, onPress, colors, styles }: { todo: Todo; onPress: () => void; colors: AppColors; styles: Styles }) {
   const update = useUpdateTodo(todo.id);
   const remove = useDeleteTodo();
 
@@ -157,7 +214,7 @@ function TodoRow({ todo, onPress }: { todo: Todo; onPress: () => void }) {
             {todo.description}
           </Text>
         ) : null}
-        <TodoMeta todo={todo} />
+        <TodoMeta todo={todo} colors={colors} styles={styles} />
       </View>
       <Pressable
         hitSlop={10}
@@ -170,17 +227,20 @@ function TodoRow({ todo, onPress }: { todo: Todo; onPress: () => void }) {
   );
 }
 
-function TodoMeta({ todo }: { todo: Todo }) {
+function TodoMeta({ todo, colors, styles }: { todo: Todo; colors: AppColors; styles: Styles }) {
   const parts: { label: string; color: string }[] = [];
 
   if (todo.priority) {
-    const colors: Record<string, string> = { low: "#888", medium: "#f5a623", high: "#c33" };
-    parts.push({ label: todo.priority, color: colors[todo.priority] ?? "#888" });
+    const priorityColors: Record<string, string> = { low: colors.textMuted, medium: colors.warning, high: colors.danger };
+    parts.push({ label: todo.priority, color: priorityColors[todo.priority] ?? colors.textMuted });
   }
 
+  if (todo.startDate) {
+    parts.push({ label: `Start ${todo.startDate}`, color: colors.textMuted });
+  }
   if (todo.dueDate) {
     const overdue = !todo.done && todo.dueDate < new Date().toISOString().slice(0, 10);
-    parts.push({ label: `Due ${todo.dueDate}`, color: overdue ? "#c33" : "#888" });
+    parts.push({ label: `Due ${todo.dueDate}`, color: overdue ? colors.danger : colors.textMuted });
   }
 
   if (parts.length === 0) return null;
@@ -195,68 +255,3 @@ function TodoMeta({ todo }: { todo: Todo }) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: "#fff" },
-  center: { flex: 1, justifyContent: "center", alignItems: "center", padding: 24, gap: 12 },
-  list: { padding: 16, paddingBottom: 96 },
-  sep: { height: 12 },
-  empty: { textAlign: "center", color: "#666", marginTop: 32 },
-
-  controls: { marginBottom: 12, gap: 8 },
-  searchInput: {
-    backgroundColor: "#f0f0f2",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    fontSize: 15,
-    color: "#222",
-  },
-  filterRow: { flexDirection: "row", gap: 8 },
-  filterBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, backgroundColor: "#f0f0f2" },
-  filterBtnActive: { backgroundColor: "#2a7" },
-  filterText: { fontSize: 13, color: "#555", fontWeight: "500" },
-  filterTextActive: { color: "#fff" },
-
-  row: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f6f6f8",
-    padding: 12,
-    borderRadius: 10,
-    gap: 12,
-  },
-  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: "#888", alignItems: "center", justifyContent: "center" },
-  checkboxDone: { borderColor: "#2a7", backgroundColor: "#2a7" },
-  checkmark: { color: "#fff", fontWeight: "700" },
-  rowText: { flex: 1 },
-  title: { fontSize: 16, color: "#222" },
-  titleDone: { color: "#888", textDecorationLine: "line-through" },
-  subtitle: { color: "#666", marginTop: 2, fontSize: 13 },
-  metaRow: { flexDirection: "row", gap: 8, marginTop: 4 },
-  metaText: { fontSize: 11, fontWeight: "500", textTransform: "capitalize" },
-  delete: { color: "#c33", fontSize: 18, paddingHorizontal: 4 },
-
-  fab: {
-    position: "absolute",
-    right: 24,
-    bottom: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#2a7",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  fabIcon: { color: "#fff", fontSize: 28, fontWeight: "300", lineHeight: 30 },
-  offlineBanner: { backgroundColor: "#f5a623", paddingVertical: 6, paddingHorizontal: 16 },
-  offlineText: { color: "#fff", fontSize: 13, textAlign: "center" },
-  error: { color: "#c33", textAlign: "center" },
-  retry: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6, backgroundColor: "#eee" },
-  retryText: { color: "#222" },
-});
