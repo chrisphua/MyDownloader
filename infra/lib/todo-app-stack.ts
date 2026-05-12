@@ -35,7 +35,7 @@ export class TodoAppStack extends Stack {
     //   aws secretsmanager create-secret --name todo-app/jwt-secret \
     //     --secret-string "$(openssl rand -hex 32)"
     const jwtSecretObj = secretsmanager.Secret.fromSecretNameV2(this, "JwtSecret", "todo-app/jwt-secret");
-    const jwtSecret = jwtSecretObj.secretValue.unsafeUnwrap();
+    const jwtSecret = jwtSecretObj.secretValueFromJson("value").unsafeUnwrap();
 
     /* ---------------------------------------------------------------- */
     /* DynamoDB                                                         */
