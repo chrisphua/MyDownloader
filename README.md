@@ -1,231 +1,112 @@
-# Todo App
+# MyDownloader
 
-A full-stack CRUD todo application demonstrating a clean, maintainable
-architecture across mobile (iOS/Android), desktop (Mac/Windows/Linux),
-web, and a serverless AWS backend.
+A free, open-source, self-contained video downloader for macOS. Paste a link
+from YouTube, TikTok, Instagram, Facebook, and 1000+ other sites — get an MP3
+or MP4 saved straight to your Mac. No account, no server, no installs.
 
-## Architecture at a glance
+**🌐 Landing page:** https://chrisphua.github.io/MyDownloader/
+**⬇️ Download:** https://github.com/chrisphua/MyDownloader/releases/latest
 
-```
-┌──────────────────────────┐
-│  Expo App (apps/mobile)  │  iOS, Android, Web
-└──────────┬───────────────┘
-           │
-┌──────────┴───────────────┐         ┌──────────────────────────┐
-│  Electron (apps/desktop) │  HTTPS  │  API Gateway (HTTP API)  │
-└──────────┬───────────────┘ ──────► │                          │
-           │                         └────────────┬─────────────┘
-           │                                      │
-           │                                      ▼
-           │                          ┌──────────────────────┐
-           │                          │  Lambda functions    │
-           │                          │  (apps/api)          │
-           │                          │  - list / get        │
-           │                          │  - create / update   │
-           │                          │  - delete            │
-           │                          └──────────┬───────────┘
-           │                                     │
-           │                                     ▼
-           │                          ┌──────────────────────┐
-           └─────────────────────────►│  DynamoDB            │
-                                      │  Table: Todos        │
-                                      └──────────────────────┘
-```
+## Features
 
-A shared `packages/types` workspace holds the canonical `Todo` type so
-all clients and the backend cannot drift on field names or shapes.
+- Download from YouTube, TikTok, Instagram, Facebook, Twitter/X, SoundCloud,
+  Vimeo, and 1000+ other sites (via [yt-dlp](https://github.com/yt-dlp/yt-dlp))
+- MP3 (audio) or MP4 (video) with resolution control
+- Fully self-contained — `yt-dlp` and `ffmpeg` are bundled inside the app
+- Runs entirely on your Mac; nothing is sent to any server
+- Native Apple Silicon (ARM64) build
 
-## Repo layout
+## Install
+
+1. Download the latest `.zip` from the [Releases page](https://github.com/chrisphua/MyDownloader/releases/latest)
+2. Unzip it and drag **MyDownloader.app** to your Applications folder
+3. Open it, paste a video URL, pick a format, and download
+
+> **First launch:** the app is unsigned, so macOS Gatekeeper may warn that it's
+> from an unidentified developer. Right-click the app → **Open**, then confirm.
+
+## Architecture
+
+Single Electron app — no server, no cloud.
 
 ```
-todo-app/
-├── apps/
-│   ├── api/             Lambda handlers (one file per endpoint)
-│   │   ├── src/handlers/
-│   │   ├── src/repository/      DDB access, swap-to-replace
-│   │   ├── src/lib/             http helpers, env, ddb client
-│   │   ├── src/dev-server.ts    Express shim for local dev
-│   │   └── scripts/             db bootstrap for DynamoDB Local
-│   ├── mobile/          Expo (React Native) app — iOS, Android, Web
-│   │   ├── app/                 expo-router screens
-│   │   └── src/                 hooks, components, api client
-│   └── desktop/         Electron app — Mac, Windows, Linux
-│       └── src/                 main process, preload, React renderer
-├── packages/
-│   └── types/           Shared TypeScript types and DTOs
-├── infra/               AWS CDK stack
-├── docker-compose.yml   DynamoDB Local for offline dev
-└── .github/workflows/   CI/CD pipeline
+apps/desktop/
+  binaries/       yt-dlp + ffmpeg ARM64 binaries (gitignored)
+  src/
+    main.ts       Electron main process; spawns yt-dlp/ffmpeg via IPC
+    preload.ts    exposes IPC channels to the renderer
+    App.tsx       React UI
+    renderer.tsx  React root
+    index.css     styles
+  forge.config.ts Electron Forge config; bundles the binaries
+docs/             GitHub Pages landing page
 ```
 
-## Prerequisites
+**How it works:** you paste a URL → the renderer calls
+`window.electron.startDownload()` → the main process spawns the bundled `yt-dlp`
+(using the bundled `ffmpeg` for muxing/conversion) → progress is streamed back
+over IPC → a native Save dialog appears when the download finishes.
 
-- Node.js 22 LTS (`brew install node@22` on Mac)
-- Docker (for DynamoDB Local during local dev)
-- AWS CLI configured (only needed when you want to deploy)
-- iOS Simulator (Xcode) and/or Android Emulator (Android Studio) for mobile
-
-## The full local dev loop (offline, no AWS account needed)
-
-From the repo root:
+## Development
 
 ```bash
-# 1. Install everything
-npm install
-npm run build --workspace @todo-app/types
+# Install dependencies
+cd apps/desktop && npm install
 
-# 2. Start DynamoDB Local in Docker
-docker compose up -d
+# Download bundled yt-dlp + ffmpeg binaries (run once before building)
+npm run download-binaries
 
-# 3. Configure the API and seed the table
-cp apps/api/.env.example apps/api/.env
-npm run db:bootstrap --workspace @todo-app/api
+# Run in dev mode
+npm start
 
-# 4. Run the API on http://localhost:3000
-PATH="/usr/local/opt/node@22/bin:$PATH" npm run dev --workspace @todo-app/api
+# Build the installable .zip for Apple Silicon
+npm run make:mac
 ```
 
-In a second terminal (mobile):
+Build output: `apps/desktop/out/make/zip/darwin/arm64/MyDownloader-darwin-arm64-*.zip`
+
+## Releasing
 
 ```bash
-# 5. Configure the mobile app
-cp apps/mobile/.env.example apps/mobile/.env
+# 1. Build
+npm run make:mac
 
-# 6. Run the Expo dev server
-PATH="/usr/local/opt/node@22/bin:$PATH" npm run start --workspace @todo-app/mobile
+# 2. Create a GitHub Release with the zip attached
+gh release create vX.Y.Z \
+  apps/desktop/out/make/zip/darwin/arm64/MyDownloader-darwin-arm64-*.zip \
+  --repo chrisphua/MyDownloader --title "MyDownloader vX.Y.Z" --notes "..."
 ```
 
-In Expo's menu, press `i` (iOS), `a` (Android), or `w` (browser).
+The landing page's download buttons point at `releases/latest/download/...`, so
+they always resolve to the newest release without editing the HTML.
 
-> **Physical device:** replace `localhost` in `apps/mobile/.env` with your
-> laptop's LAN IP (e.g. `http://192.168.1.42:3000`) — phones can't reach
-> your laptop's localhost.
+## Disclaimer
 
-Or in a second terminal (desktop):
+**This software is a tool. You are solely responsible for how you use it.**
 
-```bash
-# 5. Configure the desktop app
-cp apps/desktop/.env.example apps/desktop/.env
+- MyDownloader is provided for **personal, lawful use only** — for example,
+  downloading content you own, content in the public domain, or content you
+  have explicit permission to download.
+- **The author and contributors take no responsibility for any misuse** of this
+  software, nor for any content downloaded with it.
+- Downloading copyrighted material without the rights holder's permission may
+  violate the terms of service of the source platform and/or the copyright laws
+  of your country. Respecting those terms and laws is **your responsibility**.
+- **All downloaded content belongs to its respective owners.** This software
+  does not grant you any rights to any content. You must ensure you have the
+  legal right to download and use any content you obtain with it.
+- The software is provided **"as is", without warranty of any kind**. The author
+  is not liable for any damages, data loss, or legal consequences arising from
+  its use. See [LICENSE](./LICENSE) for the full terms.
 
-# 6. Launch the Electron app
-PATH="/usr/local/opt/node@22/bin:$PATH" npm run start --workspace @todo-app/desktop
-```
+By downloading or using MyDownloader, you agree that you understand and accept
+these terms and that you will comply with all applicable laws and the terms of
+service of any platform you download from.
 
-## Running tests
+## License
 
-```bash
-npm test --workspaces --if-present
-```
+[MIT](./LICENSE) © 2026 Chris Phua
 
-This runs:
-
-- **31** validation edge-case tests (`@todo-app/types`)
-- **26** repository tests with mocked DynamoDB (`@todo-app/api`)
-- **25** handler tests covering 200/201/204/400/404/500 paths (`@todo-app/api`)
-- **6** CDK assertion tests verifying the synthesized CloudFormation (`@todo-app/infra`)
-
-## Building desktop installers
-
-```bash
-# Builds for your current OS
-PATH="/usr/local/opt/node@22/bin:$PATH" npm run make --workspace @todo-app/desktop
-```
-
-Output goes to `apps/desktop/out/make/`:
-- **Mac** — `.zip` (distribute via your own mechanism or notarise for App Store)
-- **Windows** — `.exe` (Squirrel installer)
-- **Linux** — `.deb` and `.rpm`
-
-## Deploying to AWS
-
-> **Node 22 required for CDK commands.** Prefix each command with:
-> ```bash
-> export PATH="/usr/local/opt/node@22/bin:$PATH"
-> ```
-
-One-time, on a fresh AWS account/region:
-
-```bash
-export PATH="/usr/local/opt/node@22/bin:$PATH"
-npx cdk bootstrap --app "npx ts-node --prefer-ts-exts infra/bin/todo-app.ts"
-```
-
-Then any time:
-
-```bash
-export PATH="/usr/local/opt/node@22/bin:$PATH"
-
-# Build the web bundle (CDK uploads it to S3)
-EXPO_PUBLIC_API_URL=<temporarily anything> \
-  npm run build:web --workspace @todo-app/mobile
-
-# Deploy the stack
-npm run deploy --workspace @todo-app/infra
-```
-
-CDK prints these outputs:
-
-- `ApiUrl`             — base URL of your HTTP API
-- `WebUrl`             — public CloudFront URL
-- `WebBucketName`      — S3 bucket holding the web build
-- `TodosTableName`
-- `UserPoolId`         — copy into `VITE_USER_POOL_ID` / `EXPO_PUBLIC_USER_POOL_ID`
-- `UserPoolClientId`   — copy into `VITE_USER_POOL_CLIENT_ID` / `EXPO_PUBLIC_USER_POOL_CLIENT_ID`
-
-For the first deploy, repeat the build with `EXPO_PUBLIC_API_URL` pointing at
-the real `ApiUrl` and `cdk deploy` again so the web bundle hits the right API.
-
-## CI/CD
-
-`.github/workflows/ci.yml` runs on every push and PR:
-
-1. **Test job**: install, build types, typecheck all workspaces, run tests.
-2. **Deploy job** (main branch only): build web bundle, assume an AWS role
-   via OIDC, run `cdk deploy`.
-
-Required GitHub secrets:
-
-- `AWS_ACCESS_KEY_ID`     — IAM user access key
-- `AWS_SECRET_ACCESS_KEY` — IAM user secret key
-- `AWS_REGION`            — e.g. `ap-southeast-1`
-
-Required GitHub variable (set after the first deploy):
-
-- `EXPO_PUBLIC_API_URL` — `ApiUrl` from CDK output
-
-Cognito pool IDs are committed directly in `apps/mobile/src/config/cognito.ts`
-and `apps/desktop/src/config/cognito.ts` — update those files after the first
-deploy and push again.
-
-## How to extend it (for the next developer)
-
-- **Adding a field to Todo** → edit `packages/types/src/index.ts`. TypeScript
-  flags every place that needs to change across all clients.
-- **Adding a new endpoint** → drop a handler in `apps/api/src/handlers/`,
-  register it in `infra/lib/todo-app-stack.ts`. Add a test in
-  `apps/api/src/handlers/handlers.test.ts`.
-- **Changing the database** → all DDB access lives in
-  `apps/api/src/repository/todoRepository.ts`. Swap that one file.
-- **Mobile data fetching** → `apps/mobile/src/hooks/useTodos.ts` is the
-  React Query layer. Screens never call `fetch` directly.
-- **Desktop data fetching** → same pattern in `apps/desktop/src/hooks/useTodos.ts`.
-
-## Cost expectations
-
-A quiet Todo app on this stack typically costs **under $1/month**:
-
-- DynamoDB: PAY_PER_REQUEST, scales to zero
-- Lambda + API Gateway: free tier covers ~1M requests/month
-- S3 + CloudFront: pennies for static hosting
-
-Don't put Lambda in a VPC unless you need to — a NAT Gateway is ~$32/month
-sitting idle.
-
-## Tearing it all down
-
-```bash
-npm run destroy --workspace @todo-app/infra
-```
-
-The DynamoDB table is configured with `RemovalPolicy.DESTROY` for this demo
-— change it to `RETAIN` in `infra/lib/todo-app-stack.ts` before going to prod.
+Bundled third-party components retain their own licenses:
+[yt-dlp](https://github.com/yt-dlp/yt-dlp/blob/master/LICENSE) (Unlicense) and
+[ffmpeg](https://ffmpeg.org/legal.html) (LGPL/GPL).
