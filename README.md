@@ -6,6 +6,7 @@
   <a href="https://github.com/chrisphua/MyDownloader/releases/latest"><img src="https://img.shields.io/github/v/release/chrisphua/MyDownloader?color=22aa77&label=download" alt="Latest release"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-22aa77" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-555" alt="macOS Apple Silicon">
+  <a href="https://github.com/sponsors/chrisphua"><img src="https://img.shields.io/badge/sponsor-%E2%9D%A4-db61a2" alt="Sponsor"></a>
 </p>
 
 # MyDownloader
@@ -89,6 +90,12 @@ gh release create vX.Y.Z \
 
 The landing page's download buttons point at `releases/latest/download/...`, so
 they always resolve to the newest release without editing the HTML.
+
+## Support
+
+MyDownloader is free and open source. If it's useful to you, consider
+[sponsoring on GitHub](https://github.com/sponsors/chrisphua) — it helps cover
+maintenance and keeps the project free for everyone. 💚
 
 ## Disclaimer
 
