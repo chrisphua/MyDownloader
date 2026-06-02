@@ -9,6 +9,8 @@ const config: ForgeConfig = {
     name: "MyDownloader",
     executableName: "MyDownloader",
     appBundleId: "com.chrisphua.mydownloader",
+    // App icon (electron-packager appends .icns/.ico per platform)
+    icon: path.join(__dirname, "assets", "icon"),
     // Both binaries land in Resources/ — accessed via process.resourcesPath at runtime
     extraResource: [
       path.join(__dirname, "binaries", "yt-dlp"),
@@ -19,11 +21,6 @@ const config: ForgeConfig = {
   makers: [
     // macOS — zip (extract and drag .app to Applications)
     { name: "@electron-forge/maker-zip", platforms: ["darwin"], config: {} },
-    // Windows
-    { name: "@electron-forge/maker-squirrel", config: { name: "MyDownloader" } },
-    // Linux
-    { name: "@electron-forge/maker-deb", config: {} },
-    { name: "@electron-forge/maker-rpm", config: {} },
   ],
   plugins: [
     new AutoUnpackNativesPlugin({}),

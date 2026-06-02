@@ -1,3 +1,13 @@
+<p align="center">
+  <img src="./assets/banner.png" alt="MyDownloader — download videos & audio from YouTube, TikTok, Instagram, and 1000+ sites" width="100%">
+</p>
+
+<p align="center">
+  <a href="https://github.com/chrisphua/MyDownloader/releases/latest"><img src="https://img.shields.io/github/v/release/chrisphua/MyDownloader?color=22aa77&label=download" alt="Latest release"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-22aa77" alt="MIT License"></a>
+  <img src="https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-555" alt="macOS Apple Silicon">
+</p>
+
 # MyDownloader
 
 A free, open-source, self-contained video downloader for macOS. Paste a link
