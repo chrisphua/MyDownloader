@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyDownloader — Download videos from anywhere</title>
+  <meta name="description" content="Free macOS app to download videos and audio from YouTube, TikTok, Instagram, Facebook, and 1000+ sites." />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0d0d0d;
+      --surface: #161616;
+      --border: #2a2a2a;
+      --text: #f0f0f0;
+      --muted: #888;
+      --accent: #22aa77;
+      --accent-dim: rgba(34,170,119,0.15);
+      --accent-glow: rgba(34,170,119,0.3);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 40px;
+      background: rgba(13,13,13,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-brand { font-size: 17px; font-weight: 700; color: var(--text); text-decoration: none; }
+    .nav-brand span { color: var(--accent); }
+    .nav-links { display: flex; gap: 28px; list-style: none; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: 14px; transition: color .15s; }
+    .nav-links a:hover { color: var(--text); }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 100px 24px 80px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .hero-badge {
+      display: inline-block;
+      background: var(--accent-dim);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 28px;
+    }
+    h1 {
+      font-size: clamp(36px, 6vw, 64px);
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.1;
+      margin-bottom: 20px;
+    }
+    h1 span { color: var(--accent); }
+    .hero-sub {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 40px;
+    }
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+      padding: 14px 32px;
+      border-radius: 12px;
+      text-decoration: none;
+      box-shadow: 0 4px 24px var(--accent-glow);
+      transition: box-shadow .2s, transform .15s;
+    }
+    .btn-download:hover { box-shadow: 0 6px 32px var(--accent-glow); transform: translateY(-2px); }
+    .btn-download svg { width: 18px; height: 18px; }
+    .hero-note { margin-top: 14px; font-size: 13px; color: var(--muted); }
+
+    /* ── Sites grid ── */
+    .sites {
+      padding: 72px 24px;
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+    .sites h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 28px; }
+    .sites-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      max-width: 640px;
+      margin: 0 auto;
+    }
+    .site-chip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 20px;
+    }
+    .site-chip.more { color: var(--accent); border-color: var(--accent); background: var(--accent-dim); }
+
+    /* ── Features ── */
+    .features {
+      padding: 72px 24px;
+      border-top: 1px solid var(--border);
+    }
+    .features-inner { max-width: 900px; margin: 0 auto; }
+    .features h2 { text-align: center; font-size: 32px; font-weight: 700; margin-bottom: 48px; letter-spacing: -0.5px; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+    }
+    .feature-icon { font-size: 28px; margin-bottom: 12px; }
+    .feature-card h3 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .feature-card p { font-size: 14px; color: var(--muted); }
+
+    /* ── How it works ── */
+    .how {
+      padding: 72px 24px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+    }
+    .how h2 { font-size: 32px; font-weight: 700; margin-bottom: 48px; letter-spacing: -0.5px; }
+    .steps { display: flex; justify-content: center; gap: 0; flex-wrap: wrap; max-width: 720px; margin: 0 auto; }
+    .step { flex: 1; min-width: 180px; padding: 0 20px; position: relative; }
+    .step:not(:last-child)::after {
+      content: "→";
+      position: absolute;
+      right: -10px;
+      top: 20px;
+      color: var(--border);
+      font-size: 20px;
+    }
+    .step-num {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: var(--accent-dim);
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+    }
+    .step h3 { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .step p { font-size: 13px; color: var(--muted); }
+
+    /* ── CTA ── */
+    .cta {
+      padding: 80px 24px;
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+    .cta h2 { font-size: 32px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.5px; }
+    .cta p { color: var(--muted); margin-bottom: 32px; }
+
+    /* ── Footer ── */
+    footer {
+      padding: 32px 40px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    footer p { font-size: 13px; color: var(--muted); }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+    .footer-links { display: flex; gap: 20px; }
+
+    @media (max-width: 600px) {
+      nav { padding: 14px 20px; }
+      .nav-links { display: none; }
+      footer { flex-direction: column; text-align: center; }
+      .step:not(:last-child)::after { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-brand" href="#"><span>My</span>Downloader</a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="https://github.com/chrisphua/MyDownloader" target="_blank">GitHub</a></li>
+  </ul>
+</nav>
+
+<section class="hero">
+  <div class="hero-badge">Free &amp; Open Source · macOS Apple Silicon</div>
+  <h1>Download videos<br>from <span>anywhere</span></h1>
+  <p class="hero-sub">
+    YouTube, TikTok, Instagram, Facebook, and 1000+ sites.
+    MP3 or MP4. No account. No server. Runs entirely on your Mac.
+  </p>
+  <a class="btn-download" href="https://github.com/chrisphua/MyDownloader/releases/latest/download/MyDownloader-darwin-arm64-0.1.0.zip">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    Download for Mac
+  </a>
+  <p class="hero-note">Apple Silicon (M1/M2/M3/M4) · macOS 12+ · Free</p>
+</section>
+
+<section class="sites">
+  <h2>Supported sites</h2>
+  <div class="sites-grid">
+    <span class="site-chip">YouTube</span>
+    <span class="site-chip">TikTok</span>
+    <span class="site-chip">Instagram</span>
+    <span class="site-chip">Facebook</span>
+    <span class="site-chip">Twitter / X</span>
+    <span class="site-chip">SoundCloud</span>
+    <span class="site-chip">Vimeo</span>
+    <span class="site-chip">Twitch</span>
+    <span class="site-chip">Reddit</span>
+    <span class="site-chip">Dailymotion</span>
+    <span class="site-chip more">+ 1000 more sites</span>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="features-inner">
+    <h2>Everything you need, nothing you don't</h2>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">📦</div>
+        <h3>Fully self-contained</h3>
+        <p>No Homebrew. No Python. No installs. yt-dlp and ffmpeg are bundled inside the app.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎵</div>
+        <h3>MP3 &amp; MP4</h3>
+        <p>Download audio as high-quality MP3 or video as MP4 with resolution control up to 1080p.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Real-time progress</h3>
+        <p>Live download speed, percentage, and ETA — then a native Save dialog when done.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔒</div>
+        <h3>Private by design</h3>
+        <p>Everything runs locally on your Mac. No data sent to any server. No account required.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🍎</div>
+        <h3>Built for Apple Silicon</h3>
+        <p>Native ARM64 binary. Runs fast and efficient on M1, M2, M3, and M4 chips.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🆓</div>
+        <h3>Free &amp; open source</h3>
+        <p>No subscription, no ads, no limits. Source code on GitHub.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="how" id="how">
+  <h2>How it works</h2>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h3>Copy a link</h3>
+      <p>From YouTube, TikTok, Instagram, or any supported site</p>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h3>Choose format</h3>
+      <p>MP3 for audio, MP4 for video — pick your resolution</p>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h3>Download</h3>
+      <p>Watch the progress bar, then save to any folder</p>
+    </div>
+  </div>
+</section>
+
+<section class="cta">
+  <h2>Ready to download?</h2>
+  <p>Free forever. No sign-up required.</p>
+  <a class="btn-download" href="https://github.com/chrisphua/MyDownloader/releases/latest/download/MyDownloader-darwin-arm64-0.1.0.zip">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    Download for Mac — Free
+  </a>
+</section>
+
+<footer>
+  <p>© 2026 MyDownloader · Built with ❤️ using Electron, yt-dlp, and ffmpeg</p>
+  <div class="footer-links">
+    <a href="https://github.com/chrisphua/MyDownloader" target="_blank">GitHub</a>
+    <a href="https://github.com/chrisphua/MyDownloader/releases" target="_blank">Releases</a>
+    <a href="https://github.com/chrisphua/MyDownloader/issues" target="_blank">Report a bug</a>
+  </div>
+</footer>
+
+</body>
+</html>

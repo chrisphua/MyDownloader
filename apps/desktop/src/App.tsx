@@ -1,206 +1,176 @@
-import { useEffect, useState, type FormEvent } from "react";
-import type { Todo } from "@todo-app/types";
-import { useCreateTodo, useDeleteTodo, useIsOnline, useTodos, useUpdateTodo } from "@/hooks/useTodos";
-import { AuthForm } from "@/components/AuthForm";
-import { Sidebar, type Page } from "@/components/Sidebar";
-import { getStoredToken, signOut } from "@/lib/auth";
+import { useEffect, useRef, useState } from "react";
 
-type Filter = "all" | "active" | "done";
+type Format = "mp3" | "mp4";
+type Resolution = "best" | "1080" | "720" | "480";
+type Phase = "idle" | "starting" | "downloading" | "processing" | "done" | "error";
 
-const PRIORITY_COLOR: Record<string, string> = { low: "#888", medium: "#f5a623", high: "#c33" };
+interface Progress { percent: number; speed: string; eta: string }
+
+declare global {
+  interface Window {
+    electron: {
+      platform: string;
+      startDownload: (jobId: string, url: string, format: string, resolution: string) => Promise<void>;
+      saveFile: (jobId: string) => Promise<{ savedTo?: string; canceled?: boolean; error?: string }>;
+      onProgress: (cb: (jobId: string, data: Progress) => void) => () => void;
+      onDone: (cb: (jobId: string, filename: string) => void) => () => void;
+      onError: (cb: (jobId: string, message: string) => void) => () => void;
+    };
+  }
+}
+
+function makeJobId() {
+  return Math.random().toString(36).slice(2, 10);
+}
 
 export function App() {
-  const [isSignedIn, setIsSignedIn] = useState(() => !!getStoredToken());
+  const [url, setUrl] = useState("");
+  const [format, setFormat] = useState<Format>("mp3");
+  const [resolution, setResolution] = useState<Resolution>("best");
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [progress, setProgress] = useState<Progress>({ percent: 0, speed: "", eta: "" });
+  const [errorMsg, setErrorMsg] = useState("");
+  const jobIdRef = useRef<string | null>(null);
 
+  const busy = phase === "starting" || phase === "downloading" || phase === "processing";
+  const canDownload = url.trim().length > 0 && !busy;
+
+  // Register IPC listeners once
   useEffect(() => {
-    setIsSignedIn(!!getStoredToken());
+    const offProgress = window.electron.onProgress((jobId, data) => {
+      if (jobId !== jobIdRef.current) return;
+      setProgress({ percent: Math.min(data.percent, 100), speed: data.speed, eta: data.eta });
+      setPhase(data.eta === "Processing…" ? "processing" : "downloading");
+    });
+
+    const offDone = window.electron.onDone(async (jobId) => {
+      if (jobId !== jobIdRef.current) return;
+      setProgress((p) => ({ ...p, percent: 100 }));
+      // Trigger native Save dialog
+      const result = await window.electron.saveFile(jobId);
+      if (result.canceled) {
+        setPhase("idle");
+      } else if (result.error) {
+        setPhase("error");
+        setErrorMsg(result.error);
+      } else {
+        setPhase("done");
+      }
+    });
+
+    const offError = window.electron.onError((jobId, msg) => {
+      if (jobId !== jobIdRef.current) return;
+      setPhase("error");
+      setErrorMsg(msg);
+    });
+
+    return () => { offProgress(); offDone(); offError(); };
   }, []);
 
-  if (!isSignedIn) {
-    return <AuthForm onSignedIn={() => setIsSignedIn(true)} />;
+  function reset() {
+    jobIdRef.current = null;
+    setPhase("idle");
+    setProgress({ percent: 0, speed: "", eta: "" });
+    setErrorMsg("");
   }
 
-  return <Shell onSignOut={() => { signOut(); setIsSignedIn(false); }} />;
-}
-
-function Shell({ onSignOut }: { onSignOut: () => void }) {
-  const [page, setPage] = useState<Page>("todos");
-
-  return (
-    <div className="app-shell">
-      <Sidebar activePage={page} onNavigate={setPage} onSignOut={onSignOut} />
-      <div className="page-content">
-        {page === "todos" && <TodosPage />}
-      </div>
-    </div>
-  );
-}
-
-function TodosPage() {
-  const isOnline = useIsOnline();
-  const { data: todos, isLoading, error, refetch } = useTodos();
-  const createTodo = useCreateTodo();
-  const deleteTodo = useDeleteTodo();
-  const [newTitle, setNewTitle] = useState("");
-  const [newDesc, setNewDesc] = useState("");
-  const [newPriority, setNewPriority] = useState<"low" | "medium" | "high" | "">("");
-  const [newDueDate, setNewDueDate] = useState("");
-  const [formError, setFormError] = useState("");
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<Filter>("all");
-
-  const filtered = (todos ?? []).filter((todo) => {
-    const matchesSearch = !search || todo.title.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = filter === "all" || (filter === "done" ? todo.done : !todo.done);
-    return matchesSearch && matchesFilter;
-  });
-
-  function handleCreate(e: FormEvent) {
-    e.preventDefault();
-    const title = newTitle.trim();
-    if (!title) { setFormError("Title is required"); return; }
-    setFormError("");
-    createTodo.mutate(
-      {
-        title,
-        description: newDesc.trim() || undefined,
-        priority: newPriority || undefined,
-        dueDate: newDueDate.trim() || undefined,
-      },
-      {
-        onSuccess: () => {
-          setNewTitle("");
-          setNewDesc("");
-          setNewPriority("");
-          setNewDueDate("");
-        },
-      },
+  async function handleDownload() {
+    if (!canDownload) return;
+    reset();
+    const jobId = makeJobId();
+    jobIdRef.current = jobId;
+    setPhase("starting");
+    await window.electron.startDownload(
+      jobId,
+      url.trim(),
+      format,
+      resolution === "best" ? "" : resolution,
     );
   }
 
-  if (isLoading && !todos) return <div className="center"><div className="spinner" /></div>;
-  if (error && !todos) return (
-    <div className="center">
-      <p className="error">{error.message}</p>
-      <button onClick={() => refetch()}>Retry</button>
-    </div>
-  );
+  const pct = Math.round(progress.percent);
 
   return (
-    <div className="layout">
-      <header className="titlebar">
-        <h1>Todos</h1>
-      </header>
-      {!isOnline && (
-        <div className="offline-banner">Offline — changes will sync when connected</div>
-      )}
+    <div className="app">
+      <div className="titlebar">MyDownloader</div>
 
-      <form className="new-form" onSubmit={handleCreate}>
-        <div className="new-form-fields">
+      <div className="content">
+        <div className="field">
+          <label className="label">Video URL</label>
+          <p className="sublabel">YouTube · TikTok · Instagram · Facebook · Twitter · Vimeo · and more</p>
           <input
             className="input"
-            placeholder="New todo…"
-            value={newTitle}
-            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder="Paste a link from any supported site…"
+            value={url}
+            onChange={(e) => { setUrl(e.target.value); if (phase !== "idle") reset(); }}
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
           />
-          <input
-            className="input"
-            placeholder="Description (optional)"
-            value={newDesc}
-            onChange={(e) => setNewDesc(e.target.value)}
-          />
-          <input
-            className="input input--date"
-            placeholder="Due date (YYYY-MM-DD)"
-            value={newDueDate}
-            onChange={(e) => setNewDueDate(e.target.value)}
-          />
-          <div className="priority-select">
-            {(["", "low", "medium", "high"] as const).map((p) => (
+        </div>
+
+        <div className="field">
+          <label className="label">Format</label>
+          <div className="chips">
+            {(["mp3", "mp4"] as Format[]).map((f) => (
               <button
-                key={p}
+                key={f}
+                className={`chip${format === f ? " chip--active" : ""}`}
+                onClick={() => setFormat(f)}
                 type="button"
-                className={`priority-btn${newPriority === p ? " priority-btn--active" : ""}${p ? ` priority-btn--${p}` : ""}`}
-                onClick={() => setNewPriority(p)}
               >
-                {p || "None"}
+                {f.toUpperCase()}
               </button>
             ))}
           </div>
         </div>
-        {formError && <p className="field-error">{formError}</p>}
-        <button type="submit" className="btn-primary" disabled={createTodo.isPending}>
-          {createTodo.isPending ? "Adding…" : "Add"}
-        </button>
-      </form>
 
-      <div className="search-filter">
-        <input
-          className="input search-input"
-          placeholder="Search todos…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <div className="filter-row">
-          {(["all", "active", "done"] as Filter[]).map((f) => (
-            <button
-              key={f}
-              type="button"
-              className={`filter-btn${filter === f ? " filter-btn--active" : ""}`}
-              onClick={() => setFilter(f)}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <main className="list">
-        {filtered.length === 0 && (
-          <p className="empty">
-            {todos?.length === 0 ? "No todos yet. Add one above." : "No todos match your search."}
-          </p>
+        {format === "mp4" && (
+          <div className="field">
+            <label className="label">Resolution</label>
+            <div className="chips">
+              {(["best", "1080", "720", "480"] as Resolution[]).map((r) => (
+                <button
+                  key={r}
+                  className={`chip${resolution === r ? " chip--active" : ""}`}
+                  onClick={() => setResolution(r)}
+                  type="button"
+                >
+                  {r === "best" ? "Best" : `${r}p`}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
-        {filtered.map((todo) => (
-          <TodoRow key={todo.id} todo={todo} onDelete={() => deleteTodo.mutate(todo.id)} />
-        ))}
-      </main>
-    </div>
-  );
-}
 
-function TodoRow({ todo, onDelete }: { todo: Todo; onDelete: () => void }) {
-  const update = useUpdateTodo(todo.id);
-  const overdue = todo.dueDate && !todo.done && todo.dueDate < new Date().toISOString().slice(0, 10);
+        <button
+          className={`btn-download${!canDownload ? " btn-download--disabled" : ""}`}
+          onClick={() => void handleDownload()}
+          disabled={!canDownload}
+          type="button"
+        >
+          {phase === "starting" ? "Starting…" : "Download"}
+        </button>
 
-  return (
-    <div className={`todo-row ${todo.done ? "done" : ""}`}>
-      <button
-        className={`checkbox ${todo.done ? "checked" : ""}`}
-        onClick={() => update.mutate({ done: !todo.done })}
-        aria-label={todo.done ? "Mark incomplete" : "Mark complete"}
-      >
-        {todo.done && "✓"}
-      </button>
-      <div className="todo-text">
-        <span className="todo-title">{todo.title}</span>
-        {todo.description && <span className="todo-desc">{todo.description}</span>}
-        <div className="todo-meta">
-          {todo.priority && (
-            <span className="todo-badge" style={{ color: PRIORITY_COLOR[todo.priority] }}>
-              {todo.priority}
-            </span>
-          )}
-          {todo.dueDate && (
-            <span className="todo-badge" style={{ color: overdue ? "#cc3333" : "#6e6e73" }}>
-              Due {todo.dueDate}
-            </span>
-          )}
-        </div>
+        {(busy || phase === "done") && (
+          <div className="progress-box">
+            <div className="track">
+              <div className="fill" style={{ width: `${progress.percent}%` }} />
+            </div>
+            <div className="progress-row">
+              <span className="progress-pct">
+                {phase === "processing" ? "Processing…" : `${pct}%`}
+              </span>
+              {progress.speed && phase !== "processing" && (
+                <span className="progress-meta">{progress.speed} · ETA {progress.eta}</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {phase === "done" && <p className="msg msg--success">Saved to your Downloads folder.</p>}
+        {phase === "error" && <p className="msg msg--error">{errorMsg}</p>}
       </div>
-      <button className="btn-delete" onClick={onDelete} aria-label="Delete">
-        ✕
-      </button>
     </div>
   );
 }

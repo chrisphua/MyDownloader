@@ -1,22 +1,9 @@
-# CI: runs on every push and PR. Tests must pass before deploy.
-#
-# Deploy: only runs on pushes to main, only after CI passes.
-# AWS credentials come from GitHub Actions secrets.
-#
-# Required secrets (set in repo Settings → Secrets and variables → Actions):
-#   AWS_ROLE_TO_ASSUME    - ARN of an IAM role with deploy permissions, or
-#   AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY (less secure)
-#   AWS_REGION            - e.g. us-east-1
-
-name: ci-cd
+name: ci
 
 on:
   push:
     branches: [main]
   pull_request:
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   lint:
@@ -24,102 +11,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared types
-        run: npm run build --workspace @todo-app/types
-
-      - name: Typecheck all workspaces
-        run: npm run lint --workspaces --if-present
-
-      - name: ESLint all workspaces
-        run: npm run lint:eslint
-
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared types
-        run: npm run build --workspace @todo-app/types
-
-      - name: Run tests
-        run: npm run test --workspaces --if-present
-
-  qodana:
-    name: Qodana
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      checks: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Qodana Scan
-        uses: JetBrains/qodana-action@v2024.3
-        env:
-          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
-
-  deploy:
-    name: Deploy to AWS
-    needs: [lint, test]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write # for OIDC role assumption
-      contents: read
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build shared types
-        run: npm run build --workspace @todo-app/types
-
-      - name: Build web bundle
-        run: npm run build:web --workspace @todo-app/mobile
-        env:
-          # Replace with your deployed API URL once you know it. For the very
-          # first deploy, leave this and re-run after the stack is up to point
-          # the web build at the real API.
-          EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL }}
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
-
-      - name: CDK bootstrap
-        run: npx cdk bootstrap --app "npx tsx infra/bin/todo-app.ts" -c jwtSecret=placeholder
-
-      - name: CDK deploy
-        run: npm run deploy --workspace @todo-app/infra -- -c jwtSecret=$JWT_SECRET
-        env:
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          cache-dependency-path: apps/desktop/package-lock.json
+      - run: cd apps/desktop && npm ci
+      - run: cd apps/desktop && npm run lint
