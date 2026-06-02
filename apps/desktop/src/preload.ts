@@ -9,6 +9,9 @@ contextBridge.exposeInMainWorld("electron", {
   saveFile: (jobId: string) =>
     ipcRenderer.invoke("save-file", jobId),
 
+  openExternal: (url: string) =>
+    ipcRenderer.invoke("open-external", url),
+
   onProgress: (cb: (jobId: string, data: { percent: number; speed: string; eta: string }) => void) => {
     const handler = (_: unknown, jobId: string, data: { percent: number; speed: string; eta: string }) => cb(jobId, data);
     ipcRenderer.on("download-progress", handler);

@@ -12,6 +12,7 @@ declare global {
       platform: string;
       startDownload: (jobId: string, url: string, format: string, resolution: string) => Promise<void>;
       saveFile: (jobId: string) => Promise<{ savedTo?: string; canceled?: boolean; error?: string }>;
+      openExternal: (url: string) => Promise<void>;
       onProgress: (cb: (jobId: string, data: Progress) => void) => () => void;
       onDone: (cb: (jobId: string, filename: string) => void) => () => void;
       onError: (cb: (jobId: string, message: string) => void) => () => void;
@@ -171,6 +172,17 @@ export function App() {
         {phase === "done" && <p className="msg msg--success">Saved to your Downloads folder.</p>}
         {phase === "error" && <p className="msg msg--error">{errorMsg}</p>}
       </div>
+
+      <footer className="footer">
+        <span>Free &amp; open source</span>
+        <button
+          className="sponsor-link"
+          type="button"
+          onClick={() => void window.electron.openExternal("https://github.com/sponsors/chrisphua")}
+        >
+          Sponsor 💚
+        </button>
+      </footer>
     </div>
   );
 }

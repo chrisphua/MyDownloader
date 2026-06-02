@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { mkdtempSync, readdirSync, createReadStream } from "node:fs";
@@ -135,6 +135,15 @@ ipcMain.handle("save-file", async (_event, jobId: string) => {
   await rm(job.tmpDir, { recursive: true, force: true });
   jobs.delete(jobId);
   return { savedTo: filePath };
+});
+
+// Open an external URL in the user's default browser (allowlisted hosts only).
+ipcMain.handle("open-external", (_event, url: string) => {
+  try {
+    const { protocol, hostname } = new URL(url);
+    const allowed = hostname === "github.com" || hostname.endsWith(".github.com");
+    if (protocol === "https:" && allowed) void shell.openExternal(url);
+  } catch { /* ignore malformed URL */ }
 });
 
 // ── Window ────────────────────────────────────────────────────────────────────
