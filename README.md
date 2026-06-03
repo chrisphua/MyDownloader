@@ -16,6 +16,7 @@ from YouTube, TikTok, Instagram, Facebook, and 1000+ other sites — get an MP3
 or MP4 saved straight to your Mac. No account, no server, no installs.
 
 **🌐 Landing page:** https://chrisphua.github.io/MyDownloader/
+
 **⬇️ Download:** https://github.com/chrisphua/MyDownloader/releases/latest
 
 ## Features
