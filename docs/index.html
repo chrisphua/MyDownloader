@@ -156,6 +156,14 @@
     }
     .btn-download:hover { box-shadow: 0 6px 32px var(--accent-glow); transform: translateY(-2px); }
     .btn-download svg { width: 18px; height: 18px; }
+    .btn-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .btn-download--alt {
+      background: transparent;
+      color: var(--text);
+      border: 1.5px solid var(--border);
+      box-shadow: none;
+    }
+    .btn-download--alt:hover { box-shadow: none; border-color: var(--accent); transform: translateY(-2px); }
     .hero-note { margin-top: 14px; font-size: 13px; color: var(--muted); }
 
     /* ── Sites grid ── */
@@ -293,13 +301,21 @@
     YouTube, TikTok, Instagram, Facebook, and 1000+ sites.
     MP3 or MP4. No account. No server. Runs entirely on your Mac.
   </p>
-  <a class="btn-download" href="https://github.com/chrisphua/MyDownloader/releases/latest/download/MyDownloader-darwin-arm64-0.1.0.zip">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-    </svg>
-    Download for Mac
-  </a>
-  <p class="hero-note">Apple Silicon (M1/M2/M3/M4) · macOS 12+ · Free</p>
+  <div class="btn-row">
+    <a class="btn-download" href="https://github.com/chrisphua/MyDownloader/releases/latest/download/MyDownloader-macOS-arm64.zip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download for Mac
+    </a>
+    <a class="btn-download btn-download--alt" href="https://github.com/chrisphua/MyDownloader/releases/latest/download/MyDownloader-Setup.exe">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download for Windows
+    </a>
+  </div>
+  <p class="hero-note">macOS 12+ (Apple Silicon) · Windows 10/11 (x64) · Free</p>
 </section>
 
 <section class="sites">
@@ -381,12 +397,20 @@
 <section class="cta">
   <h2>Ready to download?</h2>
   <p>Free forever. No sign-up required.</p>
-  <a class="btn-download" href="https://github.com/chrisphua/MyDownloader/releases/latest/download/MyDownloader-darwin-arm64-0.1.0.zip">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-    </svg>
-    Download for Mac — Free
-  </a>
+  <div class="btn-row">
+    <a class="btn-download" href="https://github.com/chrisphua/MyDownloader/releases/latest/download/MyDownloader-macOS-arm64.zip">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Mac
+    </a>
+    <a class="btn-download btn-download--alt" href="https://github.com/chrisphua/MyDownloader/releases/latest/download/MyDownloader-Setup.exe">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Windows
+    </a>
+  </div>
 </section>
 
 <div class="disclaimer">

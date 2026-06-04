@@ -64,14 +64,27 @@ jobs:
         if: runner.os == 'Windows'
         run: npm run make -- --arch x64 --platform win32
 
+      # ── Stage assets with stable, version-less names so /latest/download
+      #    links never break across releases ───────────────────────────────
+      - name: Stage assets (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir -p dist
+          cp out/make/zip/darwin/arm64/*.zip "dist/MyDownloader-macOS-arm64.zip"
+
+      - name: Stage assets (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item out/make/squirrel.windows/x64/MyDownloader-Setup.exe dist/MyDownloader-Setup.exe
+
       # ── Publish to the GitHub Release for this tag ─────────────────────────
       - name: Attach artifacts to release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            apps/desktop/out/make/**/*.zip
-            apps/desktop/out/make/**/*.exe
+          files: apps/desktop/dist/*
 
       # ── Otherwise (manual run) upload as a workflow artifact for inspection ─
       - name: Upload build artifact
@@ -79,6 +92,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MyDownloader-${{ runner.os }}
-          path: |
-            apps/desktop/out/make/**/*.zip
-            apps/desktop/out/make/**/*.exe
+          path: apps/desktop/dist/*

@@ -5,15 +5,15 @@
 <p align="center">
   <a href="https://github.com/chrisphua/MyDownloader/releases/latest"><img src="https://img.shields.io/github/v/release/chrisphua/MyDownloader?color=22aa77&label=download" alt="Latest release"></a>
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-22aa77" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/platform-macOS%20(Apple%20Silicon)-555" alt="macOS Apple Silicon">
+  <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows-555" alt="macOS and Windows">
   <a href="https://github.com/sponsors/chrisphua"><img src="https://img.shields.io/badge/sponsor-%E2%9D%A4-db61a2" alt="Sponsor"></a>
 </p>
 
 # MyDownloader
 
-A free, open-source, self-contained video downloader for macOS. Paste a link
-from YouTube, TikTok, Instagram, Facebook, and 1000+ other sites — get an MP3
-or MP4 saved straight to your Mac. No account, no server, no installs.
+A free, open-source, self-contained video downloader for **macOS and Windows**.
+Paste a link from YouTube, TikTok, Instagram, Facebook, and 1000+ other sites —
+get an MP3 or MP4 saved straight to your computer. No account, no server, no installs.
 
 **🌐 Landing page:** https://chrisphua.github.io/MyDownloader/
 
@@ -25,17 +25,22 @@ or MP4 saved straight to your Mac. No account, no server, no installs.
   Vimeo, and 1000+ other sites (via [yt-dlp](https://github.com/yt-dlp/yt-dlp))
 - MP3 (audio) or MP4 (video) with resolution control
 - Fully self-contained — `yt-dlp` and `ffmpeg` are bundled inside the app
-- Runs entirely on your Mac; nothing is sent to any server
-- Native Apple Silicon (ARM64) build
+- Runs entirely on your computer; nothing is sent to any server
+- Native macOS (Apple Silicon) and Windows (x64) builds
 
 ## Install
 
-1. Download the latest `.zip` from the [Releases page](https://github.com/chrisphua/MyDownloader/releases/latest)
-2. Unzip it and drag **MyDownloader.app** to your Applications folder
-3. Open it, paste a video URL, pick a format, and download
+Download from the [Releases page](https://github.com/chrisphua/MyDownloader/releases/latest):
 
-> **First launch:** the app is unsigned, so macOS Gatekeeper may warn that it's
-> from an unidentified developer. Right-click the app → **Open**, then confirm.
+**macOS (Apple Silicon):**
+1. Download `MyDownloader-macOS-arm64.zip`, unzip, drag **MyDownloader.app** to Applications
+2. First launch: the app is unsigned, so right-click it → **Open** → confirm (Gatekeeper)
+
+**Windows (10/11, x64):**
+1. Download `MyDownloader-Setup.exe` and run it
+2. First launch: the app is unsigned, so SmartScreen may warn — click **More info → Run anyway**
+
+Then paste a video URL, pick a format, and download.
 
 ## Architecture
 
