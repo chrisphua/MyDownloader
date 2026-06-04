@@ -34,7 +34,11 @@ Download from the [Releases page](https://github.com/chrisphua/MyDownloader/rele
 
 **macOS (Apple Silicon):**
 1. Download `MyDownloader-macOS-arm64.zip`, unzip, drag **MyDownloader.app** to Applications
-2. First launch: the app is unsigned, so right-click it → **Open** → confirm (Gatekeeper)
+2. First launch: the app is unsigned, so right-click it → **Open** → **Open** again to confirm (Gatekeeper)
+3. Still see _"damaged and can't be opened"_? macOS quarantined it. Run this once in Terminal, then reopen:
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/MyDownloader.app
+   ```
 
 **Windows (10/11, x64):**
 1. Download `MyDownloader-Setup.exe` and run it

@@ -34,6 +34,34 @@ interface Job {
 
 const jobs = new Map<string, Job>();
 
+// Turn yt-dlp's raw stderr into a message a non-technical user can act on.
+// yt-dlp prints fatal errors on lines prefixed with "ERROR:". We surface those,
+// and map the common ones to a plain-English hint + next step.
+function explainFailure(stderrLines: string[]): string {
+  const errLines = stderrLines.filter((l) => /^\s*ERROR:/i.test(l));
+  const raw = (errLines.length ? errLines : stderrLines.slice(-3)).join("\n").trim();
+  const hay = raw.toLowerCase();
+
+  if (/sign in to confirm your age|age-restricted|inappropriate for some users/.test(hay))
+    return "This video is age-restricted and can't be downloaded without signing in.";
+  if (/private video|members-only|join this channel/.test(hay))
+    return "This video is private or members-only, so it can't be downloaded.";
+  if (/video unavailable|removed by the uploader|account associated.*terminated/.test(hay))
+    return "This video is unavailable — it may have been removed or set to private.";
+  if (/is not available in your country|geo|blocked it in your country/.test(hay))
+    return "This video is blocked in your region.";
+  if (/unable to extract|unsupported url|nsig extraction failed|player response|failed to extract any player response/.test(hay))
+    return "Couldn't read this video — the site likely changed. A newer app version with an updated downloader should fix it.";
+  if (/unable to download|http error 4|http error 5|connection|timed out|getaddrinfo|network is unreachable/.test(hay))
+    return "Network error reaching the site. Check your connection and try again.";
+  if (/requested format is not available/.test(hay))
+    return "That format/resolution isn't available for this video — try a different one.";
+
+  // Fall back to yt-dlp's own message rather than a generic catch-all.
+  if (raw) return raw.replace(/^\s*ERROR:\s*/i, "").slice(0, 300);
+  return "Download failed — check that the URL is valid and publicly accessible.";
+}
+
 ipcMain.handle(
   "start-download",
   (_event, jobId: string, url: string, format: string, resolution: string) => {
@@ -61,6 +89,8 @@ ipcMain.handle(
     args.push(url);
 
     const proc = spawn(ytdlp, args);
+    // Keep a rolling tail of stderr so a failed run can report the real reason.
+    const stderrTail: string[] = [];
     const pctRe = /\[download\]\s+([\d.]+)%\s+of\s+[\d.]+\S+\s+at\s+([\d.]+\S+)\s+ETA\s+(\S+)/;
     const postRe = /\[(ExtractAudio|Metadata|Merger|VideoConvertor|EmbedThumbnail|ThumbnailsConvertor)\]/;
 
@@ -80,12 +110,32 @@ ipcMain.handle(
     }
 
     proc.stdout.on("data", (d: Buffer) => d.toString().split("\n").forEach(parseLine));
-    proc.stderr.on("data", (d: Buffer) => d.toString().split("\n").forEach(parseLine));
+    proc.stderr.on("data", (d: Buffer) => {
+      d.toString().split("\n").forEach((line) => {
+        parseLine(line);
+        const t = line.trim();
+        if (t) {
+          stderrTail.push(t);
+          if (stderrTail.length > 40) stderrTail.shift();
+        }
+      });
+    });
+
+    proc.on("error", (err) => {
+      // spawn itself failed (e.g. bundled binary missing or not executable)
+      job.done = true;
+      job.error = `Couldn't start the downloader: ${err.message}`;
+      win?.webContents.send("download-error", jobId, job.error);
+      void rm(tmpDir, { recursive: true, force: true });
+      jobs.delete(jobId);
+    });
 
     proc.on("close", async (code) => {
+      // The "error" handler may have already cleaned up a failed spawn.
+      if (!jobs.has(jobId)) return;
       if (code !== 0) {
         job.done = true;
-        job.error = "yt-dlp failed — check that the URL is valid and publicly accessible";
+        job.error = explainFailure(stderrTail);
         win?.webContents.send("download-error", jobId, job.error);
         await rm(tmpDir, { recursive: true, force: true });
         jobs.delete(jobId);
