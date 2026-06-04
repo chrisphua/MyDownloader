@@ -3,24 +3,36 @@ import { AutoUnpackNativesPlugin } from "@electron-forge/plugin-auto-unpack-nati
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import path from "node:path";
 
+// yt-dlp/ffmpeg are bundled per-platform. On Windows they carry a .exe suffix.
+// forge runs on the build machine, so process.platform picks the right files.
+const isWin = process.platform === "win32";
+const bin = (name: string) => path.join(__dirname, "binaries", isWin ? `${name}.exe` : name);
+
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
     name: "MyDownloader",
     executableName: "MyDownloader",
     appBundleId: "com.chrisphua.mydownloader",
-    // App icon (electron-packager appends .icns/.ico per platform)
+    // App icon — electron-packager appends .icns (mac) / .ico (win) automatically
     icon: path.join(__dirname, "assets", "icon"),
-    // Both binaries land in Resources/ — accessed via process.resourcesPath at runtime
-    extraResource: [
-      path.join(__dirname, "binaries", "yt-dlp"),
-      path.join(__dirname, "binaries", "ffmpeg"),
-    ],
+    // Binaries land in Resources/ — accessed via process.resourcesPath at runtime
+    extraResource: [bin("yt-dlp"), bin("ffmpeg")],
   },
   rebuildConfig: {},
   makers: [
     // macOS — zip (extract and drag .app to Applications)
     { name: "@electron-forge/maker-zip", platforms: ["darwin"], config: {} },
+    // Windows — Squirrel installer (.exe)
+    {
+      name: "@electron-forge/maker-squirrel",
+      platforms: ["win32"],
+      config: {
+        name: "MyDownloader",
+        setupIcon: path.join(__dirname, "assets", "icon.ico"),
+        setupExe: "MyDownloader-Setup.exe",
+      },
+    },
   ],
   plugins: [
     new AutoUnpackNativesPlugin({}),

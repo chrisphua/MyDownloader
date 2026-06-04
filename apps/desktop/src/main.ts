@@ -11,16 +11,15 @@ declare const MAIN_WINDOW_VITE_NAME: string;
 let win: BrowserWindow | null = null;
 
 // ── Binary paths ──────────────────────────────────────────────────────────────
-// In dev: binaries/ folder next to src/
-// In production: Resources/bin/ (extraResources) and asar.unpacked (ffmpeg-static)
+// Binaries are bundled per-platform: yt-dlp/ffmpeg on macOS, yt-dlp.exe/ffmpeg.exe
+// on Windows. Packaged → Resources/ (via extraResource); dev → binaries/ folder.
 
 function getBinPath(name: "yt-dlp" | "ffmpeg"): string {
+  const exe = process.platform === "win32" ? `${name}.exe` : name;
   if (app.isPackaged) {
-    // Both binaries are in Resources/ via extraResource
-    return path.join(process.resourcesPath, name);
+    return path.join(process.resourcesPath, exe);
   }
-  // Dev: use binaries/ folder next to apps/desktop/
-  return path.join(__dirname, "../../binaries", name);
+  return path.join(__dirname, "../../binaries", exe);
 }
 
 // ── Download jobs ─────────────────────────────────────────────────────────────
