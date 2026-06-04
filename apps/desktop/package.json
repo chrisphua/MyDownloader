@@ -2,6 +2,8 @@
   "name": "@mydownloader/desktop",
   "version": "0.1.0",
   "private": true,
+  "description": "Free video & audio downloader for YouTube, TikTok, Instagram, and 1000+ sites",
+  "author": "Chris Phua",
   "main": ".vite/build/main.js",
   "scripts": {
     "start": "electron-forge start",
