@@ -325,7 +325,7 @@
   <ul class="nav-links">
     <li><a href="#features">Features</a></li>
     <li><a href="#how">How it works</a></li>
-    <li><a href="#install">First launch</a></li>
+    <li><a href="#install">Install</a></li>
     <li><a href="https://github.com/chrisphua/MyDownloader" target="_blank">GitHub</a></li>
   </ul>
 </nav>
@@ -352,7 +352,6 @@
     </a>
   </div>
   <p class="hero-note">macOS 12+ (Apple Silicon) · Windows 10/11 (x64) · Free</p>
-  <p class="hero-note">First launch shows a security warning — <a href="#install" style="color: var(--accent); text-decoration: none;">here's how to open it</a>.</p>
 </section>
 
 <section class="sites">
@@ -433,10 +432,10 @@
 
 <section class="firstrun" id="install">
   <div class="firstrun-inner">
-    <h2>Opening it the first time</h2>
+    <h2>Installing</h2>
     <p class="firstrun-sub">
-      MyDownloader is open source and not signed with a paid developer certificate, so your
-      system shows a one-time warning on the first launch. This is expected — here's how to get past it.
+      The Mac build is Apple-notarized, so it just opens. Windows shows a one-time
+      SmartScreen prompt — here's how to clear it.
     </p>
     <div class="firstrun-grid">
       <div class="firstrun-card">
@@ -446,10 +445,7 @@
         </h3>
         <ol>
           <li>Unzip the download and drag <strong>MyDownloader</strong> into your <strong>Applications</strong> folder.</li>
-          <li>Right-click the app → <strong>Open</strong> → <strong>Open</strong> again to confirm.</li>
-          <li>Still see <em>"damaged and can't be opened"</em>? macOS quarantined it. Open <strong>Terminal</strong> and run this once, then reopen the app:
-            <code>xattr -dr com.apple.quarantine /Applications/MyDownloader.app</code>
-          </li>
+          <li>Double-click to open. That's it — it's notarized by Apple, so no security prompt.</li>
         </ol>
       </div>
       <div class="firstrun-card">

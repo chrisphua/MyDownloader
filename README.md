@@ -34,11 +34,7 @@ Download from the [Releases page](https://github.com/chrisphua/MyDownloader/rele
 
 **macOS (Apple Silicon):**
 1. Download `MyDownloader-macOS-arm64.zip`, unzip, drag **MyDownloader.app** to Applications
-2. First launch: the app is unsigned, so right-click it → **Open** → **Open** again to confirm (Gatekeeper)
-3. Still see _"damaged and can't be opened"_? macOS quarantined it. Run this once in Terminal, then reopen:
-   ```bash
-   xattr -dr com.apple.quarantine /Applications/MyDownloader.app
-   ```
+2. Double-click to open — the build is Apple-notarized, so there's no security prompt
 
 **Windows (10/11, x64):**
 1. Download `MyDownloader-Setup.exe` and run it
@@ -104,13 +100,14 @@ page's `releases/latest/download/...` links never break across releases.
 
 ### macOS code signing
 
-By default the macOS build is **ad-hoc signed** — enough to avoid the
-"damaged and can't be opened" error, but users still get an "unidentified
-developer" prompt and need to right-click → **Open** the first time.
+The macOS build is **Developer ID signed + Apple-notarized**, so it opens
+with no security prompt. This is driven by the repo secrets below — the
+`release` workflow signs and notarizes automatically when they're present.
+If they're ever removed, the build falls back to **ad-hoc signing** (no
+"damaged" error, but an "unidentified developer" prompt returns); nothing
+breaks.
 
-To ship a **notarized** build that opens with no warning, add these repo
-secrets (Settings → Secrets and variables → Actions). When present, the
-`release` workflow automatically does a Developer ID sign + notarize:
+The secrets (Settings → Secrets and variables → Actions):
 
 | Secret | What it is |
 | --- | --- |
@@ -122,8 +119,8 @@ secrets (Settings → Secrets and variables → Actions). When present, the
 | `APPLE_TEAM_ID` | Your 10-character Apple Developer Team ID |
 
 Requires a paid [Apple Developer Program](https://developer.apple.com/programs/)
-membership ($99/yr). With no secrets set, builds stay ad-hoc signed — nothing
-breaks.
+membership ($99/yr). If the membership lapses, notarization stops and builds
+fall back to ad-hoc signing.
 
 ## Support
 
