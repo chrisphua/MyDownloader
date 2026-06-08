@@ -21,6 +21,16 @@ jobs:
           - os: windows-latest
             name: Windows (x64)
     runs-on: ${{ matrix.os }}
+    # macOS signing secrets. All empty when unset → the build falls back to
+    # ad-hoc signing. Add these repo secrets to switch on Developer ID +
+    # notarization (see README → "macOS code signing").
+    env:
+      APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     defaults:
       run:
         working-directory: apps/desktop
@@ -55,7 +65,33 @@ jobs:
           Invoke-WebRequest -Uri "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" -OutFile "binaries/yt-dlp.exe"
           Invoke-WebRequest -Uri "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-win32-x64" -OutFile "binaries/ffmpeg.exe"
 
+      # ── Import Developer ID cert (only when signing secrets are present) ────
+      # Creates a throwaway keychain, imports the .p12, and pre-signs the bundled
+      # yt-dlp/ffmpeg with the Developer ID + hardened runtime so every Mach-O in
+      # the bundle passes notarization. Skipped entirely when secrets are unset.
+      - name: Set up macOS signing keychain
+        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE_BASE64 != ''
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KC_PW="$(uuidgen)"
+          security create-keychain -p "$KC_PW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KC_PW" "$KEYCHAIN"
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KC_PW" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          for b in binaries/yt-dlp binaries/ffmpeg; do
+            codesign --force --timestamp --options runtime \
+              --sign "$APPLE_SIGNING_IDENTITY" "$b"
+          done
+
       # ── Build ─────────────────────────────────────────────────────────────
+      # forge.config.ts reads the APPLE_* env: with a signing identity it does a
+      # Developer ID sign + notarize during packaging; without one it builds
+      # unsigned and the stage step below ad-hoc signs instead.
       - name: Build (macOS)
         if: runner.os == 'macOS'
         run: npm run make -- --arch arm64 --platform darwin
@@ -66,11 +102,29 @@ jobs:
 
       # ── Stage assets with stable, version-less names so /latest/download
       #    links never break across releases ───────────────────────────────
-      - name: Stage assets (macOS)
+      # Two paths:
+      #  • Signing secrets present → forge already Developer ID-signed + notarized
+      #    the .app during the build; verify and staple the notarization ticket.
+      #  • No secrets → ad-hoc sign so Apple Silicon stops calling it "damaged"
+      #    (unsigned arm64 apps fail Gatekeeper's signature check outright; a
+      #    valid ad-hoc signature downgrades that to the milder "unidentified
+      #    developer" prompt, which right-click → Open clears).
+      # Re-zip with ditto either way to preserve bundle symlinks and signature.
+      - name: Sign/verify and stage (macOS)
         if: runner.os == 'macOS'
         run: |
+          APP=$(ls -d out/*/MyDownloader.app | head -1)
+          if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+            echo "Developer ID build — verifying signature and stapling ticket"
+            codesign --verify --deep --strict --verbose=2 "$APP"
+            xcrun stapler staple "$APP"
+          else
+            echo "No signing secrets — ad-hoc signing $APP"
+            codesign --force --deep --sign - "$APP"
+            codesign --verify --deep --strict --verbose=2 "$APP"
+          fi
           mkdir -p dist
-          cp out/make/zip/darwin/arm64/*.zip "dist/MyDownloader-macOS-arm64.zip"
+          ditto -c -k --keepParent "$APP" "dist/MyDownloader-macOS-arm64.zip"
 
       - name: Stage assets (Windows)
         if: runner.os == 'Windows'

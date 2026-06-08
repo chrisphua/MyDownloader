@@ -88,18 +88,42 @@ Build output: `apps/desktop/out/make/zip/darwin/arm64/MyDownloader-darwin-arm64-
 
 ## Releasing
 
-```bash
-# 1. Build
-npm run make:mac
+Releases are built by GitHub Actions. Push a version tag and the
+`release` workflow builds macOS (Apple Silicon) + Windows (x64), signs the
+macOS app, and attaches both to the GitHub Release:
 
-# 2. Create a GitHub Release with the zip attached
-gh release create vX.Y.Z \
-  apps/desktop/out/make/zip/darwin/arm64/MyDownloader-darwin-arm64-*.zip \
-  --repo chrisphua/MyDownloader --title "MyDownloader vX.Y.Z" --notes "..."
+```bash
+# Bump apps/desktop/package.json "version" first, then:
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
-The landing page's download buttons point at `releases/latest/download/...`, so
-they always resolve to the newest release without editing the HTML.
+Assets land with stable, version-less names
+(`MyDownloader-macOS-arm64.zip`, `MyDownloader-Setup.exe`), so the landing
+page's `releases/latest/download/...` links never break across releases.
+
+### macOS code signing
+
+By default the macOS build is **ad-hoc signed** — enough to avoid the
+"damaged and can't be opened" error, but users still get an "unidentified
+developer" prompt and need to right-click → **Open** the first time.
+
+To ship a **notarized** build that opens with no warning, add these repo
+secrets (Settings → Secrets and variables → Actions). When present, the
+`release` workflow automatically does a Developer ID sign + notarize:
+
+| Secret | What it is |
+| --- | --- |
+| `APPLE_CERTIFICATE_BASE64` | Your "Developer ID Application" cert exported as `.p12`, then `base64 -i cert.p12 \| pbcopy` |
+| `APPLE_CERTIFICATE_PASSWORD` | The password you set when exporting the `.p12` |
+| `APPLE_SIGNING_IDENTITY` | e.g. `Developer ID Application: Your Name (TEAMID)` |
+| `APPLE_ID` | Your Apple Developer account email |
+| `APPLE_APP_SPECIFIC_PASSWORD` | An [app-specific password](https://support.apple.com/102654) for that Apple ID |
+| `APPLE_TEAM_ID` | Your 10-character Apple Developer Team ID |
+
+Requires a paid [Apple Developer Program](https://developer.apple.com/programs/)
+membership ($99/yr). With no secrets set, builds stay ad-hoc signed — nothing
+breaks.
 
 ## Support
 

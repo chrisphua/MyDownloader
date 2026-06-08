@@ -8,6 +8,13 @@ import path from "node:path";
 const isWin = process.platform === "win32";
 const bin = (name: string) => path.join(__dirname, "binaries", isWin ? `${name}.exe` : name);
 
+// macOS code signing is opt-in via env vars (set by CI from repo secrets).
+// When APPLE_SIGNING_IDENTITY is present we do a real Developer ID sign +
+// notarize; when it's absent the build is left unsigned and CI ad-hoc signs it
+// instead (enough to clear the "damaged" error, but still an "unidentified
+// developer" prompt). See README → "macOS code signing".
+const signingIdentity = process.env.APPLE_SIGNING_IDENTITY;
+
 const config: ForgeConfig = {
   packagerConfig: {
     asar: true,
@@ -18,6 +25,26 @@ const config: ForgeConfig = {
     icon: path.join(__dirname, "assets", "icon"),
     // Binaries land in Resources/ — accessed via process.resourcesPath at runtime
     extraResource: [bin("yt-dlp"), bin("ffmpeg")],
+    ...(signingIdentity
+      ? {
+          osxSign: {
+            identity: signingIdentity,
+            optionsForFile: () => ({
+              hardenedRuntime: true,
+              entitlements: path.join(__dirname, "entitlements.plist"),
+            }),
+          },
+          ...(process.env.APPLE_ID
+            ? {
+                osxNotarize: {
+                  appleId: process.env.APPLE_ID,
+                  appleIdPassword: process.env.APPLE_APP_SPECIFIC_PASSWORD!,
+                  teamId: process.env.APPLE_TEAM_ID!,
+                },
+              }
+            : {}),
+        }
+      : {}),
   },
   rebuildConfig: {},
   makers: [
