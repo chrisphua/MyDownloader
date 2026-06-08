@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, dialog, shell } from "electron";
 import path from "node:path";
-import { spawn } from "node:child_process";
-import { mkdtempSync, readdirSync, createReadStream } from "node:fs";
+import { spawn, type ChildProcess } from "node:child_process";
+import { mkdtempSync, readdirSync, existsSync, copyFileSync, chmodSync, rmSync } from "node:fs";
 import { rm, copyFile, mkdir } from "node:fs/promises";
 import { tmpdir, homedir } from "node:os";
 
@@ -14,12 +14,77 @@ let win: BrowserWindow | null = null;
 // Binaries are bundled per-platform: yt-dlp/ffmpeg on macOS, yt-dlp.exe/ffmpeg.exe
 // on Windows. Packaged → Resources/ (via extraResource); dev → binaries/ folder.
 
-function getBinPath(name: "yt-dlp" | "ffmpeg"): string {
-  const exe = process.platform === "win32" ? `${name}.exe` : name;
-  if (app.isPackaged) {
-    return path.join(process.resourcesPath, exe);
+const exeName = (name: "yt-dlp" | "ffmpeg") =>
+  process.platform === "win32" ? `${name}.exe` : name;
+
+function bundledBinPath(name: "yt-dlp" | "ffmpeg"): string {
+  if (app.isPackaged) return path.join(process.resourcesPath, exeName(name));
+  return path.join(__dirname, "../../binaries", exeName(name));
+}
+
+// yt-dlp ships fixes constantly as sites change; the bundled copy goes stale
+// between app releases. The bundle is signed and read-only, so we keep a
+// writable copy in userData, self-update that with `yt-dlp -U`, and prefer it
+// at runtime. ffmpeg is stable and always used from the bundle.
+const userYtdlpPath = () => path.join(app.getPath("userData"), exeName("yt-dlp"));
+
+function ytdlpPath(): string {
+  const u = userYtdlpPath();
+  return existsSync(u) ? u : bundledBinPath("yt-dlp");
+}
+
+// Promise of the launch-time background update, so a download started right
+// away waits for it to finish rather than racing a half-rewritten binary.
+let ytdlpUpdate: Promise<void> | null = null;
+
+function ensureWritableYtdlp(): string {
+  const u = userYtdlpPath();
+  if (!existsSync(u)) {
+    copyFileSync(bundledBinPath("yt-dlp"), u);
+    if (process.platform !== "win32") chmodSync(u, 0o755);
   }
-  return path.join(__dirname, "../../binaries", exe);
+  return u;
+}
+
+function getYtdlpVersion(): Promise<string> {
+  return new Promise((resolve) => {
+    let out = "";
+    const p = spawn(ytdlpPath(), ["--version"]);
+    p.stdout.on("data", (d: Buffer) => (out += d.toString()));
+    p.on("error", () => resolve("unknown"));
+    p.on("close", () => resolve(out.trim() || "unknown"));
+  });
+}
+
+// Update the userData copy in place. If the result won't run, drop it so the
+// next call falls back to the known-good bundled binary.
+async function updateYtdlp(): Promise<{ ok: boolean; message: string; version: string }> {
+  let message = "";
+  await new Promise<void>((resolve) => {
+    let target: string;
+    try {
+      target = ensureWritableYtdlp();
+    } catch (e) {
+      message = `Couldn't prepare yt-dlp for update: ${String(e)}`;
+      resolve();
+      return;
+    }
+    const p = spawn(target, ["--update"]);
+    p.stdout.on("data", (d: Buffer) => (message += d.toString()));
+    p.stderr.on("data", (d: Buffer) => (message += d.toString()));
+    p.on("error", (err) => {
+      message = err.message;
+      resolve();
+    });
+    p.on("close", () => resolve());
+  });
+
+  const version = await getYtdlpVersion();
+  if (version === "unknown") {
+    try { rmSync(userYtdlpPath(), { force: true }); } catch { /* ignore */ }
+    return { ok: false, message: "Update failed; reverted to the bundled downloader.", version: await getYtdlpVersion() };
+  }
+  return { ok: true, message: message.trim(), version };
 }
 
 // ── Download jobs ─────────────────────────────────────────────────────────────
@@ -30,6 +95,8 @@ interface Job {
   done: boolean;
   filename?: string;
   error?: string;
+  proc?: ChildProcess;
+  cancelled?: boolean;
 }
 
 const jobs = new Map<string, Job>();
@@ -64,13 +131,16 @@ function explainFailure(stderrLines: string[]): string {
 
 ipcMain.handle(
   "start-download",
-  (_event, jobId: string, url: string, format: string, resolution: string) => {
+  async (_event, jobId: string, url: string, format: string, resolution: string) => {
+    // Wait for any in-flight launch update so we don't exec a half-written binary.
+    if (ytdlpUpdate) { try { await ytdlpUpdate; } catch { /* ignore */ } }
+
     const tmpDir = mkdtempSync(path.join(tmpdir(), "ytdl-"));
     const job: Job = { tmpDir, format, done: false };
     jobs.set(jobId, job);
 
-    const ytdlp = getBinPath("yt-dlp");
-    const ffmpeg = getBinPath("ffmpeg");
+    const ytdlp = ytdlpPath();
+    const ffmpeg = bundledBinPath("ffmpeg");
 
     const args = [
       "--output", path.join(tmpDir, "%(title)s.%(ext)s"),
@@ -89,6 +159,7 @@ ipcMain.handle(
     args.push(url);
 
     const proc = spawn(ytdlp, args);
+    job.proc = proc;
     // Keep a rolling tail of stderr so a failed run can report the real reason.
     const stderrTail: string[] = [];
     const pctRe = /\[download\]\s+([\d.]+)%\s+of\s+[\d.]+\S+\s+at\s+([\d.]+\S+)\s+ETA\s+(\S+)/;
@@ -133,6 +204,12 @@ ipcMain.handle(
     proc.on("close", async (code) => {
       // The "error" handler may have already cleaned up a failed spawn.
       if (!jobs.has(jobId)) return;
+      // User cancelled: clean up quietly, no error surfaced.
+      if (job.cancelled) {
+        await rm(tmpDir, { recursive: true, force: true });
+        jobs.delete(jobId);
+        return;
+      }
       if (code !== 0) {
         job.done = true;
         job.error = explainFailure(stderrTail);
@@ -186,6 +263,26 @@ ipcMain.handle("save-file", async (_event, jobId: string) => {
   return { savedTo: filePath };
 });
 
+// Cancel an in-flight download: kill yt-dlp and clean up. The close handler
+// sees job.cancelled and stays silent.
+ipcMain.handle("cancel-download", (_event, jobId: string) => {
+  const job = jobs.get(jobId);
+  if (!job || job.done) return;
+  job.cancelled = true;
+  job.proc?.kill("SIGTERM");
+  // Hard-stop anything that ignores SIGTERM (e.g. a stuck ffmpeg merge).
+  setTimeout(() => job.proc?.kill("SIGKILL"), 2000);
+});
+
+// Current yt-dlp version (awaits the launch update so it reflects the latest).
+ipcMain.handle("get-ytdlp-info", async () => {
+  if (ytdlpUpdate) { try { await ytdlpUpdate; } catch { /* ignore */ } }
+  return { version: await getYtdlpVersion() };
+});
+
+// Manual "Check for updates".
+ipcMain.handle("update-ytdlp", () => updateYtdlp());
+
 // Open an external URL in the user's default browser (allowlisted hosts only).
 ipcMain.handle("open-external", (_event, url: string) => {
   try {
@@ -223,6 +320,10 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+  // Keep yt-dlp fresh in the background so site changes don't silently break
+  // downloads between app releases. Failures are non-fatal (offline, etc.) —
+  // we still have the bundled copy.
+  ytdlpUpdate = updateYtdlp().then(() => undefined).catch(() => undefined);
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

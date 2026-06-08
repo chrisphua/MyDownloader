@@ -12,6 +12,9 @@ declare global {
       platform: string;
       startDownload: (jobId: string, url: string, format: string, resolution: string) => Promise<void>;
       saveFile: (jobId: string) => Promise<{ savedTo?: string; canceled?: boolean; error?: string }>;
+      cancelDownload: (jobId: string) => Promise<void>;
+      getYtdlpInfo: () => Promise<{ version: string }>;
+      updateYtdlp: () => Promise<{ ok: boolean; message: string; version: string }>;
       openExternal: (url: string) => Promise<void>;
       onProgress: (cb: (jobId: string, data: Progress) => void) => () => void;
       onDone: (cb: (jobId: string, filename: string) => void) => () => void;
@@ -31,6 +34,9 @@ export function App() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [progress, setProgress] = useState<Progress>({ percent: 0, speed: "", eta: "" });
   const [errorMsg, setErrorMsg] = useState("");
+  const [ytdlpVersion, setYtdlpVersion] = useState("");
+  const [updateState, setUpdateState] = useState<"idle" | "checking" | "done">("idle");
+  const [updateMsg, setUpdateMsg] = useState("");
   const jobIdRef = useRef<string | null>(null);
 
   const busy = phase === "starting" || phase === "downloading" || phase === "processing";
@@ -67,6 +73,27 @@ export function App() {
 
     return () => { offProgress(); offDone(); offError(); };
   }, []);
+
+  // Show the active yt-dlp version (resolves after the launch auto-update).
+  useEffect(() => {
+    void window.electron.getYtdlpInfo().then((info) => setYtdlpVersion(info.version));
+  }, []);
+
+  async function handleCancel() {
+    const jobId = jobIdRef.current;
+    if (!jobId) return;
+    await window.electron.cancelDownload(jobId);
+    reset();
+  }
+
+  async function handleUpdate() {
+    setUpdateState("checking");
+    setUpdateMsg("");
+    const r = await window.electron.updateYtdlp();
+    setYtdlpVersion(r.version);
+    setUpdateState("done");
+    setUpdateMsg(r.ok ? "Downloader is up to date." : r.message);
+  }
 
   function reset() {
     jobIdRef.current = null;
@@ -153,6 +180,12 @@ export function App() {
           {phase === "starting" ? "Starting…" : "Download"}
         </button>
 
+        {busy && (
+          <button className="btn-cancel" type="button" onClick={() => void handleCancel()}>
+            Cancel
+          </button>
+        )}
+
         {(busy || phase === "done") && (
           <div className="progress-box">
             <div className="track">
@@ -171,6 +204,19 @@ export function App() {
 
         {phase === "done" && <p className="msg msg--success">Saved to your Downloads folder.</p>}
         {phase === "error" && <p className="msg msg--error">{errorMsg}</p>}
+
+        <div className="engine">
+          <span>Downloader engine: yt-dlp {ytdlpVersion || "…"}</span>
+          <button
+            className="link-btn"
+            type="button"
+            onClick={() => void handleUpdate()}
+            disabled={updateState === "checking"}
+          >
+            {updateState === "checking" ? "Checking…" : "Check for updates"}
+          </button>
+        </div>
+        {updateMsg && <p className="engine-msg">{updateMsg}</p>}
       </div>
 
       <footer className="footer">

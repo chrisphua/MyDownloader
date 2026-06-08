@@ -9,6 +9,15 @@ contextBridge.exposeInMainWorld("electron", {
   saveFile: (jobId: string) =>
     ipcRenderer.invoke("save-file", jobId),
 
+  cancelDownload: (jobId: string) =>
+    ipcRenderer.invoke("cancel-download", jobId),
+
+  getYtdlpInfo: () =>
+    ipcRenderer.invoke("get-ytdlp-info") as Promise<{ version: string }>,
+
+  updateYtdlp: () =>
+    ipcRenderer.invoke("update-ytdlp") as Promise<{ ok: boolean; message: string; version: string }>,
+
   openExternal: (url: string) =>
     ipcRenderer.invoke("open-external", url),
 
