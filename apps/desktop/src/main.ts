@@ -131,9 +131,11 @@ function explainFailure(stderrLines: string[]): string {
 
 ipcMain.handle(
   "start-download",
-  async (_event, jobId: string, url: string, format: string, resolution: string) => {
-    // Wait for any in-flight launch update so we don't exec a half-written binary.
-    if (ytdlpUpdate) { try { await ytdlpUpdate; } catch { /* ignore */ } }
+  (_event, jobId: string, url: string, format: string, resolution: string) => {
+    // Note: we do NOT wait for the background yt-dlp update here — that would
+    // make the first download sit on "Starting…" for the length of the update
+    // check. The update replaces the binary atomically (download to temp, then
+    // rename), so a download spawned mid-update still execs a complete binary.
 
     const tmpDir = mkdtempSync(path.join(tmpdir(), "ytdl-"));
     const job: Job = { tmpDir, format, done: false };
@@ -160,9 +162,18 @@ ipcMain.handle(
 
     const proc = spawn(ytdlp, args);
     job.proc = proc;
+    // Move the UI off "Starting…" right away; yt-dlp spends a few seconds
+    // fetching page/player info before the first [download] % line appears.
+    win?.webContents.send("download-progress", jobId, { percent: 0, speed: "", eta: "Preparing…" });
+
     // Keep a rolling tail of stderr so a failed run can report the real reason.
     const stderrTail: string[] = [];
-    const pctRe = /\[download\]\s+([\d.]+)%\s+of\s+[\d.]+\S+\s+at\s+([\d.]+\S+)\s+ETA\s+(\S+)/;
+    // Match any "[download] NN.N%" line and pull speed/ETA when present. Lenient
+    // on purpose: yt-dlp varies the size field (e.g. "of ~ 5MiB", "(frag 2/10)",
+    // "at Unknown B/s"), so we don't require those to be parseable.
+    const pctRe = /\[download\]\s+([\d.]+)%/;
+    const speedRe = /at\s+(\S+\/s)/;
+    const etaRe = /ETA\s+([0-9:]+)/;
     const postRe = /\[(ExtractAudio|Metadata|Merger|VideoConvertor|EmbedThumbnail|ThumbnailsConvertor)\]/;
 
     function parseLine(line: string) {
@@ -170,8 +181,8 @@ ipcMain.handle(
       if (m) {
         win?.webContents.send("download-progress", jobId, {
           percent: parseFloat(m[1] ?? "0"),
-          speed: m[2] ?? "",
-          eta: m[3] ?? "",
+          speed: line.match(speedRe)?.[1] ?? "",
+          eta: line.match(etaRe)?.[1] ?? "",
         });
         return;
       }

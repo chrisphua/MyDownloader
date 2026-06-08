@@ -193,7 +193,11 @@ export function App() {
             </div>
             <div className="progress-row">
               <span className="progress-pct">
-                {phase === "processing" ? "Processing…" : `${pct}%`}
+                {phase === "processing"
+                  ? "Processing…"
+                  : progress.eta === "Preparing…"
+                    ? "Preparing…"
+                    : `${pct}%`}
               </span>
               {progress.speed && phase !== "processing" && (
                 <span className="progress-meta">{progress.speed} · ETA {progress.eta}</span>
